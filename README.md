@@ -30,6 +30,20 @@ Your evals are only as good as your datasets, this is the hard part.
 
 ---
 
+## Introducing Diamond
+
+Evaluation datasets that evolve with your product. Diamond turns the mess of production logs and expert knowledge into structured, high-quality datasets you can actually trust.
+
+**Domain experts at the center.** Author structured scenarios with the people who know what good looks like. No more engineers guessing at ground truth.
+
+**Continuously evolving from production.** Diamond connects to your production logs and surfaces the scenarios that matter — edge cases, failures, emerging patterns — so your datasets never go stale.
+
+**Coverage you can measure.** See exactly which user scenarios you're testing and which ones you're missing. No more blind spots.
+
+**Heterogeneity built in.** Ensure your datasets represent the full diversity of real-world behavior, not just the easy cases.
+
+---
+
 ## The Basalt Stack
 
 Diamond is part of a complete AI evaluation ecosystem:
