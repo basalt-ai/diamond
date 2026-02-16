@@ -1,5 +1,7 @@
 # Diamond
 
+🌐 **[Visit the website →](https://diamondflow.tech/)**
+
 **Your AI evaluation datasets are broken. We're fixing them.**
 
 ---
