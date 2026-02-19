@@ -2,9 +2,25 @@
 title: Labeling Context — Annotation Workflow Implementation Patterns
 date: 2026-02-19
 category: integration-issues
-tags: [zod-v4, ddd, state-machine, labeling-context, agreement-calculation, cross-context-adapters, drizzle, label-versioning]
+tags:
+  [
+    zod-v4,
+    ddd,
+    state-machine,
+    labeling-context,
+    agreement-calculation,
+    cross-context-adapters,
+    drizzle,
+    label-versioning,
+  ]
 severity: medium
-components: [src/contexts/labeling, src/db/schema/labeling, app/api/v1/label-tasks, app/api/v1/labels]
+components:
+  [
+    src/contexts/labeling,
+    src/db/schema/labeling,
+    app/api/v1/label-tasks,
+    app/api/v1/labels,
+  ]
 root_cause: Zod v4 API differences and label versioning ordering requirements
 resolution_type: implementation-pattern
 linear_epic: GET-9
@@ -82,9 +98,10 @@ const existingLabels = await this.labelRepo.getCurrentByTaskId(taskId);
 const previousFromAnnotator = existingLabels.filter(
   (l) => l.annotatorId === annotatorId
 );
-const version = previousFromAnnotator.length > 0
-  ? Math.max(...previousFromAnnotator.map((l) => l.version)) + 1
-  : 1;
+const version =
+  previousFromAnnotator.length > 0
+    ? Math.max(...previousFromAnnotator.map((l) => l.version)) + 1
+    : 1;
 ```
 
 If you calculate the version BEFORE marking previous as not-current, you get stale data.
@@ -93,13 +110,13 @@ If you calculate the version BEFORE marking previous as not-current, you get sta
 
 Agreement metrics live in `src/contexts/labeling/domain/agreement.ts` as pure functions — no I/O, no side effects, easy to test.
 
-| Label Type | Metric | Threshold |
-|---|---|---|
-| `discrete` | Exact match (0 or 1) | 1.0 |
-| `extractive` | Token-level F1 overlap | 0.7 |
-| `generative` | Always requires adjudication | N/A |
-| `rubric_scored` | 1 - normalized weighted MAD | 0.8 |
-| `set_valued` | Jaccard index | 0.7 |
+| Label Type      | Metric                       | Threshold |
+| --------------- | ---------------------------- | --------- |
+| `discrete`      | Exact match (0 or 1)         | 1.0       |
+| `extractive`    | Token-level F1 overlap       | 0.7       |
+| `generative`    | Always requires adjudication | N/A       |
+| `rubric_scored` | 1 - normalized weighted MAD  | 0.8       |
+| `set_valued`    | Jaccard index                | 0.7       |
 
 **Pattern:** `computeAgreement(labels, labelType)` returns a number. The caller compares against `AGREEMENT_THRESHOLDS[labelType]` to decide finalization vs adjudication.
 
@@ -131,7 +148,11 @@ export class CandidateContextAdapter implements CandidateReader {
     const { manageCandidates } = await import("@/contexts/candidate");
     try {
       const candidate = await manageCandidates.get(candidateId);
-      return { id: candidate.id, state: candidate.state, scenario_type_id: candidate.scenarioTypeId as UUID };
+      return {
+        id: candidate.id,
+        state: candidate.state,
+        scenario_type_id: candidate.scenarioTypeId as UUID,
+      };
     } catch (error) {
       if (error instanceof NotFoundError) return null;
       throw error;
@@ -141,20 +162,21 @@ export class CandidateContextAdapter implements CandidateReader {
 ```
 
 **Rules:**
+
 - Never static-import from another context's internals
 - Always catch `NotFoundError` and return `null` (graceful degradation)
 - Import from the context's composition root (`@/contexts/xxx`), not internal files
 
 ## Gotchas
 
-| Issue | Wrong | Correct |
-|---|---|---|
-| Zod v4 nonnegative | `.nonneg()` | `.nonnegative()` |
-| Zod v4 record | `z.record(z.unknown())` | `z.record(z.string(), z.unknown())` |
-| Zod v4 import | `from "zod/v4"` | `from "zod"` |
-| Label version calc | Calculate version then mark old not-current | Mark old not-current THEN calculate version |
-| Route params (Next.js 16) | `params.id` | `const { id } = await params` |
-| Dynamic label validation | Validate in Zod schema | Use `z.unknown()` then validate with `LABEL_VALUE_SCHEMAS[type]` after parse |
+| Issue                     | Wrong                                       | Correct                                                                      |
+| ------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------- |
+| Zod v4 nonnegative        | `.nonneg()`                                 | `.nonnegative()`                                                             |
+| Zod v4 record             | `z.record(z.unknown())`                     | `z.record(z.string(), z.unknown())`                                          |
+| Zod v4 import             | `from "zod/v4"`                             | `from "zod"`                                                                 |
+| Label version calc        | Calculate version then mark old not-current | Mark old not-current THEN calculate version                                  |
+| Route params (Next.js 16) | `params.id`                                 | `const { id } = await params`                                                |
+| Dynamic label validation  | Validate in Zod schema                      | Use `z.unknown()` then validate with `LABEL_VALUE_SCHEMAS[type]` after parse |
 
 ## Prevention Strategies
 
