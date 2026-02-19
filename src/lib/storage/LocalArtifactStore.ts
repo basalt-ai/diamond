@@ -2,13 +2,19 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import type { ArtifactStore } from "../application/ports/ArtifactStore";
+import type { ArtifactStore } from "./ArtifactStore";
 
-const ARTIFACT_ROOT = join(process.cwd(), ".ingestion");
+const LOCAL_ROOT = join(process.cwd(), ".artifacts");
 
-export class LocalFilesystemArtifactStore implements ArtifactStore {
+export class LocalArtifactStore implements ArtifactStore {
+  private readonly root: string;
+
+  constructor(keyPrefix?: string) {
+    this.root = keyPrefix ? join(LOCAL_ROOT, keyPrefix) : LOCAL_ROOT;
+  }
+
   async write(path: string, content: Buffer): Promise<{ sizeBytes: number }> {
-    const fullPath = join(ARTIFACT_ROOT, path);
+    const fullPath = join(this.root, path);
     await mkdir(dirname(fullPath), { recursive: true });
     await writeFile(fullPath, content);
     const stats = await stat(fullPath);
@@ -16,7 +22,7 @@ export class LocalFilesystemArtifactStore implements ArtifactStore {
   }
 
   readStream(path: string): ReadableStream {
-    const fullPath = join(ARTIFACT_ROOT, path);
+    const fullPath = join(this.root, path);
     return new ReadableStream({
       async start(controller) {
         try {
@@ -31,12 +37,10 @@ export class LocalFilesystemArtifactStore implements ArtifactStore {
   }
 
   async exists(path: string): Promise<boolean> {
-    const fullPath = join(ARTIFACT_ROOT, path);
-    return existsSync(fullPath);
+    return existsSync(join(this.root, path));
   }
 
   async delete(path: string): Promise<void> {
-    const fullPath = join(ARTIFACT_ROOT, path);
-    await rm(fullPath, { force: true });
+    await rm(join(this.root, path), { force: true });
   }
 }

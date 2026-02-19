@@ -24,8 +24,10 @@
 .DS_Store
 *.pem
 
-# export artifacts
+# local artifact storage
+/.artifacts
 /.exports
+/.ingestion
 
 # debug
 npm-debug.log*
