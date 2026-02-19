@@ -56,9 +56,14 @@
       "WebFetch(domain:developers.cloudflare.com)",
       "WebFetch(domain:aws.amazon.com)",
       "WebFetch(domain:vercel.com)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "mcp__linear__list_milestones",
+      "Bash(npx shadcn@latest:*)",
+      "Bash(git -C /Users/theophile/diamond/diamond status --short)"
     ]
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["supabase"]
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }
