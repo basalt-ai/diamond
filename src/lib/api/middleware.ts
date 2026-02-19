@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { DatasetImmutableError } from "@/contexts/dataset/domain/errors";
 import {
   ConcurrencyConflictError,
   ReferenceIntegrityError,
@@ -55,7 +56,8 @@ export function withApiMiddleware(handler: RouteHandler): RouteHandler {
         error instanceof InvalidStateTransitionError ||
         error instanceof DuplicateError ||
         error instanceof ReferenceIntegrityError ||
-        error instanceof ConcurrencyConflictError
+        error instanceof ConcurrencyConflictError ||
+        error instanceof DatasetImmutableError
       ) {
         return errorResponse(409, error.code, error.message, requestId);
       }
