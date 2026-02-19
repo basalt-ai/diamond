@@ -1,7 +1,7 @@
 import type { DomainEvent } from "./DomainEvent";
 
 export type EventHandler<T extends DomainEvent = DomainEvent> = (
-  event: T,
+  event: T
 ) => void | Promise<void>;
 
 export interface EventSubscriber {

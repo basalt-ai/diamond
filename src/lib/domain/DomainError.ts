@@ -1,7 +1,7 @@
 export class DomainError extends Error {
   constructor(
     message: string,
-    public readonly code: string,
+    public readonly code: string
   ) {
     super(message);
     this.name = "DomainError";
@@ -19,7 +19,7 @@ export class InvalidStateTransitionError extends DomainError {
   constructor(entity: string, from: string, to: string) {
     super(
       `Cannot transition ${entity} from ${from} to ${to}`,
-      "INVALID_STATE_TRANSITION",
+      "INVALID_STATE_TRANSITION"
     );
     this.name = "InvalidStateTransitionError";
   }

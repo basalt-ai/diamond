@@ -49,7 +49,7 @@ Evaluation datasets that evolve with your product. Diamond turns the mess of pro
 Diamond is part of a complete AI evaluation ecosystem:
 
 - **[Cobalt](https://github.com/basalt-ai/cobalt)** — CI-native testing for AI agents
-- **[Diamond](https://github.com/basalt-ai/diamond)** — Dataset engine for AI evals ← *You are here*
+- **[Diamond](https://github.com/basalt-ai/diamond)** — Dataset engine for AI evals ← _You are here_
 - **[Limestone](https://github.com/basalt-ai/limestone)** — Build trustworthy LLM-as-a-judge evaluators
 - **[Asphalt](https://github.com/basalt-ai/asphalt)** — Self-improving engine for production AI agents
 

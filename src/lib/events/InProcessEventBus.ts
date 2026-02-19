@@ -22,7 +22,7 @@ export class InProcessEventBus implements EventPublisher, EventSubscriber {
       } catch (error) {
         console.error(
           `[EventBus] Handler failed for ${event.eventType}:`,
-          error,
+          error
         );
       }
     }

@@ -24,7 +24,7 @@ export function proxy(request: NextRequest) {
           message: "Missing or malformed Authorization header",
         },
       },
-      { status: 401 },
+      { status: 401 }
     );
   }
 
@@ -32,7 +32,7 @@ export function proxy(request: NextRequest) {
   if (!validKeys.includes(token)) {
     return NextResponse.json(
       { error: { code: "UNAUTHORIZED", message: "Invalid API key" } },
-      { status: 401 },
+      { status: 401 }
     );
   }
 

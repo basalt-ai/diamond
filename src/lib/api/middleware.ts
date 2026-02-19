@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ApiError } from "./errors";
+
 import {
   NotFoundError,
   InvalidStateTransitionError,
@@ -7,6 +7,8 @@ import {
   DomainError,
 } from "@/lib/domain/DomainError";
 import { generateId } from "@/shared/ids";
+
+import { ApiError } from "./errors";
 
 type RouteContext = { params: Promise<Record<string, string>> };
 type RouteHandler = (req: NextRequest, ctx: RouteContext) => Promise<Response>;
@@ -16,11 +18,11 @@ function errorResponse(
   code: string,
   message: string,
   requestId: string,
-  details?: Record<string, unknown>,
+  details?: Record<string, unknown>
 ) {
   return NextResponse.json(
     { error: { code, message, ...(details && { details }), requestId } },
-    { status: statusCode },
+    { status: statusCode }
   );
 }
 
@@ -37,7 +39,7 @@ export function withApiMiddleware(handler: RouteHandler): RouteHandler {
           error.code,
           error.message,
           requestId,
-          error.details,
+          error.details
         );
       }
 
@@ -61,7 +63,7 @@ export function withApiMiddleware(handler: RouteHandler): RouteHandler {
         500,
         "INTERNAL_ERROR",
         "An unexpected error occurred",
-        requestId,
+        requestId
       );
     }
   };

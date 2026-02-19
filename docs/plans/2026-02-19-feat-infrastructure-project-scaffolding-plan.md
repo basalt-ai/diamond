@@ -16,6 +16,7 @@ Set up the foundational infrastructure that all six bounded contexts depend on. 
 **Current state:** Fresh Next.js 16 scaffold with zero infrastructure. No API routes, no database, no auth, no middleware.
 
 **Target state:** A fully operational infrastructure layer where:
+
 - API routes are served at `/api/v1/` with Bearer token authentication
 - PostgreSQL is accessible via Drizzle ORM with a working migration pipeline
 - Supabase Storage provides S3-compatible object storage
@@ -118,18 +119,18 @@ diamond/
 
 ### Key Architectural Decisions
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| ORM | Drizzle ORM + `postgres` driver | Type-safe, SQL migrations in git, works directly with Supabase PostgreSQL |
-| Object Store | Supabase Storage (SDK + S3 protocol) | Already provisioned, integrated with project |
-| Auth (Phase 1) | Static API keys in env vars | Simplest for machine-to-machine; upgrade to DB-backed keys later |
-| Event Bus | In-process synchronous, events collected on aggregate | Swappable adapter, zero infra, standard DDD pattern |
-| UUID Strategy | UUID v7 (time-ordered) | Better B-tree index performance in PostgreSQL |
-| Runtime | Node.js only (not Edge) | Required for `postgres` driver and Drizzle ORM |
-| Path Alias | `@/*` → `./src/*` | All source code lives under `src/` |
-| Event-Transaction Boundary | Events dispatch **after** repository `save()` commits, outside the transaction | Acknowledged loss risk for Phase 1; transactional outbox deferred to Phase 2+ |
-| Migration Strategy | CLI-driven via `drizzle-kit` (not at app boot) | Safer for multi-instance and serverless deployments |
-| Schema Organization | One Drizzle schema file per bounded context, all in `public` PostgreSQL schema with naming prefixes | Balanced simplicity vs isolation; e.g. `ingestion_episodes`, `scenario_types` |
+| Decision                   | Choice                                                                                              | Rationale                                                                     |
+| -------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| ORM                        | Drizzle ORM + `postgres` driver                                                                     | Type-safe, SQL migrations in git, works directly with Supabase PostgreSQL     |
+| Object Store               | Supabase Storage (SDK + S3 protocol)                                                                | Already provisioned, integrated with project                                  |
+| Auth (Phase 1)             | Static API keys in env vars                                                                         | Simplest for machine-to-machine; upgrade to DB-backed keys later              |
+| Event Bus                  | In-process synchronous, events collected on aggregate                                               | Swappable adapter, zero infra, standard DDD pattern                           |
+| UUID Strategy              | UUID v7 (time-ordered)                                                                              | Better B-tree index performance in PostgreSQL                                 |
+| Runtime                    | Node.js only (not Edge)                                                                             | Required for `postgres` driver and Drizzle ORM                                |
+| Path Alias                 | `@/*` → `./src/*`                                                                                   | All source code lives under `src/`                                            |
+| Event-Transaction Boundary | Events dispatch **after** repository `save()` commits, outside the transaction                      | Acknowledged loss risk for Phase 1; transactional outbox deferred to Phase 2+ |
+| Migration Strategy         | CLI-driven via `drizzle-kit` (not at app boot)                                                      | Safer for multi-instance and serverless deployments                           |
+| Schema Organization        | One Drizzle schema file per bounded context, all in `public` PostgreSQL schema with naming prefixes | Balanced simplicity vs isolation; e.g. `ingestion_episodes`, `scenario_types` |
 
 ### Implementation Phases
 
@@ -138,11 +139,13 @@ diamond/
 Install all required packages, configure TypeScript, set up environment validation.
 
 **Tasks:**
+
 - [x] Install dependencies: `drizzle-orm`, `postgres`, `drizzle-kit`, `@supabase/supabase-js`, `@supabase/ssr`, `zod`, `uuid` (for v7 generation via `uuidv7` package or `crypto.randomUUID` with custom v7)
 - [x] Update `tsconfig.json`: change `@/*` path alias to `./src/*`, add `noUncheckedIndexedAccess: true`
 - [x] Create `src/config/env.ts` — Zod schema parsing `process.env` at import time
 
 **Files:**
+
 - `package.json` (modified)
 - `tsconfig.json` (modified)
 - `src/config/env.ts` (new)
@@ -150,17 +153,20 @@ Install all required packages, configure TypeScript, set up environment validati
 
 ```typescript
 // src/config/env.ts
-import { z } from 'zod'
+import { z } from "zod";
 
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-  API_KEYS: z.string().min(1).transform(s => s.split(',')),
-})
+  API_KEYS: z
+    .string()
+    .min(1)
+    .transform((s) => s.split(",")),
+});
 
-export const env = envSchema.parse(process.env)
+export const env = envSchema.parse(process.env);
 ```
 
 ```
@@ -181,6 +187,7 @@ API_KEYS=dk_live_key1,dk_live_key2
 Set up Drizzle ORM, create the database client, and verify migrations work.
 
 **Tasks:**
+
 - [x]Create `drizzle.config.ts` at project root
 - [x]Create `src/db/index.ts` — Drizzle client singleton with `postgres` driver
 - [x]Create `src/db/schema/index.ts` — empty barrel file for future context schemas
@@ -189,6 +196,7 @@ Set up Drizzle ORM, create the database client, and verify migrations work.
 - [x]Verify `pnpm db:generate` and `pnpm db:migrate` execute cleanly against Supabase
 
 **Files:**
+
 - `drizzle.config.ts` (new)
 - `src/db/index.ts` (new)
 - `src/db/schema/index.ts` (new)
@@ -196,27 +204,27 @@ Set up Drizzle ORM, create the database client, and verify migrations work.
 
 ```typescript
 // drizzle.config.ts
-import { defineConfig } from 'drizzle-kit'
+import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
-  dialect: 'postgresql',
-  schema: './src/db/schema/index.ts',
-  out: './src/db/migrations',
+  dialect: "postgresql",
+  schema: "./src/db/schema/index.ts",
+  out: "./src/db/migrations",
   dbCredentials: {
     url: process.env.DATABASE_URL!,
   },
-})
+});
 ```
 
 ```typescript
 // src/db/index.ts
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
-import * as schema from './schema'
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import * as schema from "./schema";
 
-const client = postgres(process.env.DATABASE_URL!)
-export const db = drizzle(client, { schema })
-export type Database = typeof db
+const client = postgres(process.env.DATABASE_URL!);
+export const db = drizzle(client, { schema });
+export type Database = typeof db;
 ```
 
 **Success criteria:** `pnpm db:migrate` runs a migration against Supabase PostgreSQL. `pnpm db:studio` opens Drizzle Studio.
@@ -228,6 +236,7 @@ export type Database = typeof db
 Create the base classes and types that all bounded contexts will use.
 
 **Tasks:**
+
 - [x]Create `src/shared/types.ts` — branded types for UUID, Timestamp
 - [x]Create `src/shared/ids.ts` — UUID v7 generation function
 - [x]Create `src/lib/domain/AggregateRoot.ts` — base class with domain event collection
@@ -236,6 +245,7 @@ Create the base classes and types that all bounded contexts will use.
 - [x]Create `src/lib/domain/DomainError.ts` — base domain exception hierarchy
 
 **Files:**
+
 - `src/shared/types.ts` (new)
 - `src/shared/ids.ts` (new)
 - `src/lib/domain/AggregateRoot.ts` (new)
@@ -245,11 +255,11 @@ Create the base classes and types that all bounded contexts will use.
 
 ```typescript
 // src/lib/domain/AggregateRoot.ts
-import { DomainEvent } from '../events/DomainEvent'
-import { generateId } from '@/shared/ids'
+import { DomainEvent } from "../events/DomainEvent";
+import { generateId } from "@/shared/ids";
 
 export abstract class AggregateRoot {
-  private _domainEvents: DomainEvent[] = []
+  private _domainEvents: DomainEvent[] = [];
 
   protected addDomainEvent(
     eventType: string,
@@ -262,15 +272,15 @@ export abstract class AggregateRoot {
       aggregateId,
       occurredAt: new Date(),
       payload,
-    })
+    });
   }
 
   get domainEvents(): ReadonlyArray<DomainEvent> {
-    return this._domainEvents
+    return this._domainEvents;
   }
 
   clearEvents(): void {
-    this._domainEvents = []
+    this._domainEvents = [];
   }
 }
 ```
@@ -282,15 +292,15 @@ export class DomainError extends Error {
     message: string,
     public readonly code: string
   ) {
-    super(message)
-    this.name = 'DomainError'
+    super(message);
+    this.name = "DomainError";
   }
 }
 
 export class NotFoundError extends DomainError {
   constructor(entity: string, id: string) {
-    super(`${entity} with id ${id} not found`, 'NOT_FOUND')
-    this.name = 'NotFoundError'
+    super(`${entity} with id ${id} not found`, "NOT_FOUND");
+    this.name = "NotFoundError";
   }
 }
 
@@ -298,16 +308,16 @@ export class InvalidStateTransitionError extends DomainError {
   constructor(entity: string, from: string, to: string) {
     super(
       `Cannot transition ${entity} from ${from} to ${to}`,
-      'INVALID_STATE_TRANSITION'
-    )
-    this.name = 'InvalidStateTransitionError'
+      "INVALID_STATE_TRANSITION"
+    );
+    this.name = "InvalidStateTransitionError";
   }
 }
 
 export class DuplicateError extends DomainError {
   constructor(entity: string, field: string, value: string) {
-    super(`${entity} with ${field} "${value}" already exists`, 'DUPLICATE')
-    this.name = 'DuplicateError'
+    super(`${entity} with ${field} "${value}" already exists`, "DUPLICATE");
+    this.name = "DuplicateError";
   }
 }
 ```
@@ -315,14 +325,14 @@ export class DuplicateError extends DomainError {
 ```typescript
 // src/lib/domain/ValueObject.ts
 export abstract class ValueObject<T extends Record<string, unknown>> {
-  protected readonly props: T
+  protected readonly props: T;
 
   constructor(props: T) {
-    this.props = Object.freeze(props)
+    this.props = Object.freeze(props);
   }
 
   equals(other: ValueObject<T>): boolean {
-    return JSON.stringify(this.props) === JSON.stringify(other.props)
+    return JSON.stringify(this.props) === JSON.stringify(other.props);
   }
 }
 ```
@@ -336,6 +346,7 @@ export abstract class ValueObject<T extends Record<string, unknown>> {
 Implement the in-process synchronous event bus with type-safe event definitions.
 
 **Tasks:**
+
 - [x]Create `src/lib/events/DomainEvent.ts` — event envelope interface
 - [x]Create `src/lib/events/EventPublisher.ts` — outbound port interface
 - [x]Create `src/lib/events/EventSubscriber.ts` — subscriber interface with typed handlers
@@ -344,6 +355,7 @@ Implement the in-process synchronous event bus with type-safe event definitions.
 - [x]Handle error isolation: if one handler throws, log the error but continue executing remaining handlers
 
 **Files:**
+
 - `src/lib/events/DomainEvent.ts` (new)
 - `src/lib/events/EventPublisher.ts` (new)
 - `src/lib/events/EventSubscriber.ts` (new)
@@ -353,78 +365,79 @@ Implement the in-process synchronous event bus with type-safe event definitions.
 ```typescript
 // src/lib/events/DomainEvent.ts
 export interface DomainEvent {
-  readonly eventId: string
-  readonly eventType: string
-  readonly aggregateId: string
-  readonly occurredAt: Date
-  readonly payload: Record<string, unknown>
+  readonly eventId: string;
+  readonly eventType: string;
+  readonly aggregateId: string;
+  readonly occurredAt: Date;
+  readonly payload: Record<string, unknown>;
 }
 
 export type TypedDomainEvent<
   T extends string,
-  P extends Record<string, unknown>
+  P extends Record<string, unknown>,
 > = DomainEvent & {
-  readonly eventType: T
-  readonly payload: P
-}
+  readonly eventType: T;
+  readonly payload: P;
+};
 ```
 
 ```typescript
 // src/lib/events/EventPublisher.ts
-import { DomainEvent } from './DomainEvent'
+import { DomainEvent } from "./DomainEvent";
 
 export interface EventPublisher {
-  publish(event: DomainEvent): Promise<void>
-  publishAll(events: ReadonlyArray<DomainEvent>): Promise<void>
+  publish(event: DomainEvent): Promise<void>;
+  publishAll(events: ReadonlyArray<DomainEvent>): Promise<void>;
 }
 ```
 
 ```typescript
 // src/lib/events/InProcessEventBus.ts
-import { DomainEvent } from './DomainEvent'
-import { EventPublisher } from './EventPublisher'
+import { DomainEvent } from "./DomainEvent";
+import { EventPublisher } from "./EventPublisher";
 
-type EventHandler = (event: DomainEvent) => void | Promise<void>
+type EventHandler = (event: DomainEvent) => void | Promise<void>;
 
 export class InProcessEventBus implements EventPublisher {
-  private handlers = new Map<string, Set<EventHandler>>()
+  private handlers = new Map<string, Set<EventHandler>>();
 
   subscribe(eventType: string, handler: EventHandler): void {
     if (!this.handlers.has(eventType)) {
-      this.handlers.set(eventType, new Set())
+      this.handlers.set(eventType, new Set());
     }
-    this.handlers.get(eventType)!.add(handler)
+    this.handlers.get(eventType)!.add(handler);
   }
 
   async publish(event: DomainEvent): Promise<void> {
-    const handlers = this.handlers.get(event.eventType)
-    if (!handlers) return
+    const handlers = this.handlers.get(event.eventType);
+    if (!handlers) return;
 
     for (const handler of handlers) {
       try {
-        await handler(event)
+        await handler(event);
       } catch (error) {
         // Log but don't propagate — other handlers still execute
         console.error(
           `[EventBus] Handler failed for ${event.eventType}:`,
           error
-        )
+        );
       }
     }
   }
 
   async publishAll(events: ReadonlyArray<DomainEvent>): Promise<void> {
     for (const event of events) {
-      await this.publish(event)
+      await this.publish(event);
     }
   }
 }
 
 // Singleton for Phase 1
-export const eventBus = new InProcessEventBus()
+export const eventBus = new InProcessEventBus();
 ```
 
 **Design decisions:**
+
 - Handlers are `async` — practically all will make DB calls.
 - Error isolation: a failing handler is logged, does not block other handlers or the caller.
 - Events dispatch **after** the repository commits (not inside the transaction). The repository's `save()` method calls `eventBus.publishAll(aggregate.domainEvents)` after persisting, then `aggregate.clearEvents()`.
@@ -439,6 +452,7 @@ export const eventBus = new InProcessEventBus()
 Implement the standardized API error response contract and Zod validation helpers.
 
 **Tasks:**
+
 - [x]Create `src/lib/api/errors.ts` — `ApiError` class with factory methods, error response type
 - [x]Create `src/lib/api/validate.ts` — `parseBody()` and `parseQuery()` helpers using Zod
 - [x]Create `src/lib/api/middleware.ts` — `withApiMiddleware()` HOF wrapping route handlers
@@ -446,6 +460,7 @@ Implement the standardized API error response contract and Zod validation helper
 - [x]Map domain errors to HTTP status codes in the middleware
 
 **Files:**
+
 - `src/lib/api/errors.ts` (new)
 - `src/lib/api/validate.ts` (new)
 - `src/lib/api/middleware.ts` (new)
@@ -469,75 +484,103 @@ Implement the standardized API error response contract and Zod validation helper
 
 **Domain error → HTTP status mapping:**
 
-| Domain Error | HTTP Status | Error Code |
-|---|---|---|
-| `NotFoundError` | 404 | `NOT_FOUND` |
-| `InvalidStateTransitionError` | 409 | `INVALID_STATE_TRANSITION` |
-| `DuplicateError` | 409 | `DUPLICATE` |
-| `DomainError` (generic) | 422 | `DOMAIN_ERROR` |
-| Zod validation error | 422 | `VALIDATION_ERROR` |
-| Unknown error | 500 | `INTERNAL_ERROR` |
+| Domain Error                  | HTTP Status | Error Code                 |
+| ----------------------------- | ----------- | -------------------------- |
+| `NotFoundError`               | 404         | `NOT_FOUND`                |
+| `InvalidStateTransitionError` | 409         | `INVALID_STATE_TRANSITION` |
+| `DuplicateError`              | 409         | `DUPLICATE`                |
+| `DomainError` (generic)       | 422         | `DOMAIN_ERROR`             |
+| Zod validation error          | 422         | `VALIDATION_ERROR`         |
+| Unknown error                 | 500         | `INTERNAL_ERROR`           |
 
 ```typescript
 // src/lib/api/middleware.ts
-import { NextRequest, NextResponse } from 'next/server'
-import { ApiError } from './errors'
-import { NotFoundError, InvalidStateTransitionError, DuplicateError, DomainError } from '@/lib/domain/DomainError'
-import { ZodError } from 'zod'
-import { generateId } from '@/shared/ids'
+import { NextRequest, NextResponse } from "next/server";
+import { ApiError } from "./errors";
+import {
+  NotFoundError,
+  InvalidStateTransitionError,
+  DuplicateError,
+  DomainError,
+} from "@/lib/domain/DomainError";
+import { ZodError } from "zod";
+import { generateId } from "@/shared/ids";
 
-type RouteContext = { params: Promise<Record<string, string>> }
-type RouteHandler = (req: NextRequest, ctx: RouteContext) => Promise<Response>
+type RouteContext = { params: Promise<Record<string, string>> };
+type RouteHandler = (req: NextRequest, ctx: RouteContext) => Promise<Response>;
 
 export function withApiMiddleware(handler: RouteHandler): RouteHandler {
   return async (req, ctx) => {
-    const requestId = generateId()
+    const requestId = generateId();
 
     try {
-      return await handler(req, ctx)
+      return await handler(req, ctx);
     } catch (error) {
       if (error instanceof ApiError) {
         return NextResponse.json(
-          { error: { code: error.code, message: error.message, details: error.details, requestId } },
+          {
+            error: {
+              code: error.code,
+              message: error.message,
+              details: error.details,
+              requestId,
+            },
+          },
           { status: error.statusCode }
-        )
+        );
       }
 
       if (error instanceof NotFoundError) {
         return NextResponse.json(
-          { error: { code: 'NOT_FOUND', message: error.message, requestId } },
+          { error: { code: "NOT_FOUND", message: error.message, requestId } },
           { status: 404 }
-        )
+        );
       }
 
-      if (error instanceof InvalidStateTransitionError || error instanceof DuplicateError) {
+      if (
+        error instanceof InvalidStateTransitionError ||
+        error instanceof DuplicateError
+      ) {
         return NextResponse.json(
           { error: { code: error.code, message: error.message, requestId } },
           { status: 409 }
-        )
+        );
       }
 
       if (error instanceof DomainError) {
         return NextResponse.json(
           { error: { code: error.code, message: error.message, requestId } },
           { status: 422 }
-        )
+        );
       }
 
       if (error instanceof ZodError) {
         return NextResponse.json(
-          { error: { code: 'VALIDATION_ERROR', message: 'Validation failed', details: error.flatten().fieldErrors, requestId } },
+          {
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Validation failed",
+              details: error.flatten().fieldErrors,
+              requestId,
+            },
+          },
           { status: 422 }
-        )
+        );
       }
 
-      console.error(`[${requestId}] Unhandled error:`, error)
+      console.error(`[${requestId}] Unhandled error:`, error);
       return NextResponse.json(
-        { error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred', requestId } },
+        {
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "An unexpected error occurred",
+            requestId,
+          },
+        },
         { status: 500 }
-      )
+      );
     }
-  }
+  };
 }
 ```
 
@@ -550,6 +593,7 @@ export function withApiMiddleware(handler: RouteHandler): RouteHandler {
 Implement Bearer token authentication at the edge.
 
 **Tasks:**
+
 - [x]Create `middleware.ts` at project root — validates `Authorization: Bearer <key>` against `API_KEYS` env var
 - [x]Configure matcher to protect `/api/v1/*` routes only
 - [x]Exempt health check route: `GET /api/v1/health`
@@ -557,53 +601,59 @@ Implement Bearer token authentication at the edge.
 - [x]Forward truncated key ID as `x-api-key-id` header for audit logging
 
 **Files:**
+
 - `middleware.ts` (new — project root)
 
 ```typescript
 // middleware.ts
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from "next/server";
 
-const PUBLIC_PATHS = ['/api/v1/health']
+const PUBLIC_PATHS = ["/api/v1/health"];
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const { pathname } = request.nextUrl;
 
   // Only guard versioned API routes
-  if (!pathname.startsWith('/api/v1')) {
-    return NextResponse.next()
+  if (!pathname.startsWith("/api/v1")) {
+    return NextResponse.next();
   }
 
   // Allow public paths through
   if (PUBLIC_PATHS.includes(pathname)) {
-    return NextResponse.next()
+    return NextResponse.next();
   }
 
-  const authorization = request.headers.get('authorization') ?? ''
-  const [scheme, token] = authorization.split(' ')
+  const authorization = request.headers.get("authorization") ?? "";
+  const [scheme, token] = authorization.split(" ");
 
-  if (scheme !== 'Bearer' || !token) {
+  if (scheme !== "Bearer" || !token) {
     return NextResponse.json(
-      { error: { code: 'UNAUTHORIZED', message: 'Missing or malformed Authorization header' } },
+      {
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Missing or malformed Authorization header",
+        },
+      },
       { status: 401 }
-    )
+    );
   }
 
-  const validKeys = process.env.API_KEYS?.split(',') ?? []
+  const validKeys = process.env.API_KEYS?.split(",") ?? [];
   if (!validKeys.includes(token)) {
     return NextResponse.json(
-      { error: { code: 'UNAUTHORIZED', message: 'Invalid API key' } },
+      { error: { code: "UNAUTHORIZED", message: "Invalid API key" } },
       { status: 401 }
-    )
+    );
   }
 
-  const response = NextResponse.next()
-  response.headers.set('x-api-key-id', token.slice(0, 8))
-  return response
+  const response = NextResponse.next();
+  response.headers.set("x-api-key-id", token.slice(0, 8));
+  return response;
 }
 
 export const config = {
-  matcher: ['/api/v1/:path*'],
-}
+  matcher: ["/api/v1/:path*"],
+};
 ```
 
 **Success criteria:** Unauthenticated requests return 401. Valid Bearer tokens pass through. Health check is accessible without auth.
@@ -615,6 +665,7 @@ export const config = {
 Set up the S3-compatible object store for episode artifacts and export artifacts.
 
 **Tasks:**
+
 - [ ] Install `@aws-sdk/client-s3` and `@aws-sdk/lib-storage` for server-side S3 protocol access (DEFERRED)
 - [ ] Create `src/lib/storage/supabase-storage.ts` — storage client using S3 protocol (DEFERRED)
 - [ ] Define `ArtifactStore` port interface in `src/lib/storage/ArtifactStore.ts` (DEFERRED)
@@ -622,6 +673,7 @@ Set up the S3-compatible object store for episode artifacts and export artifacts
 - [ ] Add storage env vars to `.env.example` (DEFERRED)
 
 **Files:**
+
 - `src/lib/storage/ArtifactStore.ts` (new — port interface)
 - `src/lib/storage/supabase-storage.ts` (new — adapter)
 - `.env.example` (modified)
@@ -629,14 +681,19 @@ Set up the S3-compatible object store for episode artifacts and export artifacts
 ```typescript
 // src/lib/storage/ArtifactStore.ts
 export interface ArtifactStore {
-  put(key: string, data: Buffer | ReadableStream, contentType: string): Promise<string>
-  get(key: string): Promise<Buffer>
-  getSignedUrl(key: string, expiresInSeconds: number): Promise<string>
-  delete(key: string): Promise<void>
+  put(
+    key: string,
+    data: Buffer | ReadableStream,
+    contentType: string
+  ): Promise<string>;
+  get(key: string): Promise<Buffer>;
+  getSignedUrl(key: string, expiresInSeconds: number): Promise<string>;
+  delete(key: string): Promise<void>;
 }
 ```
 
 **Bucket structure:**
+
 - `ingestion-artifacts` — raw episode transcripts, traces (private, server-side access only)
 - `export-artifacts` — JSONL, Cobalt, Limestone export files (private, accessed via signed URLs)
 
@@ -649,29 +706,34 @@ export interface ArtifactStore {
 Create a minimal API route to verify the full stack works end-to-end.
 
 **Tasks:**
+
 - [x]Create `app/api/v1/health/route.ts` — returns 200 with DB connectivity check
 - [x]Verify the complete request lifecycle: middleware → route → database → response
 - [x]Add `next.config.ts` configuration to force Node.js runtime globally
 
 **Files:**
+
 - `app/api/v1/health/route.ts` (new)
 - `next.config.ts` (modified)
 
 ```typescript
 // app/api/v1/health/route.ts
-import { NextResponse } from 'next/server'
-import { db } from '@/db'
-import { sql } from 'drizzle-orm'
+import { NextResponse } from "next/server";
+import { db } from "@/db";
+import { sql } from "drizzle-orm";
 
 export async function GET() {
   try {
-    await db.execute(sql`SELECT 1`)
-    return NextResponse.json({ status: 'healthy', timestamp: new Date().toISOString() })
+    await db.execute(sql`SELECT 1`);
+    return NextResponse.json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+    });
   } catch {
     return NextResponse.json(
-      { status: 'unhealthy', timestamp: new Date().toISOString() },
+      { status: "unhealthy", timestamp: new Date().toISOString() },
       { status: 503 }
-    )
+    );
   }
 }
 ```
@@ -680,15 +742,15 @@ export async function GET() {
 
 ## Alternative Approaches Considered
 
-| Approach | Why Rejected |
-|---|---|
-| **Supabase client only (no ORM)** | Couples domain logic to Supabase's query API; no type-safe migrations in git; incompatible with hexagonal architecture's outbound port pattern |
-| **Prisma instead of Drizzle** | Heavier, generates a client, less control over SQL, slower cold starts in serverless |
-| **JWT tokens for Phase 1 auth** | Over-engineered for machine-to-machine API access; adds JWT signing/verification complexity without user identity needs |
-| **Edge runtime** | Incompatible with `postgres` driver and Drizzle ORM; Node.js runtime required |
-| **Transactional outbox for Phase 1** | Adds significant complexity (outbox table, polling process) for a system with synchronous in-process events; deferred to Phase 2+ when contexts may be deployed separately |
-| **One PostgreSQL schema per bounded context** | Drizzle's multi-schema support adds configuration complexity; naming prefixes provide sufficient isolation for Phase 1 |
-| **Event sourcing** | Dramatically increases infrastructure complexity; standard CRUD + domain events is sufficient for Diamond's requirements |
+| Approach                                      | Why Rejected                                                                                                                                                               |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Supabase client only (no ORM)**             | Couples domain logic to Supabase's query API; no type-safe migrations in git; incompatible with hexagonal architecture's outbound port pattern                             |
+| **Prisma instead of Drizzle**                 | Heavier, generates a client, less control over SQL, slower cold starts in serverless                                                                                       |
+| **JWT tokens for Phase 1 auth**               | Over-engineered for machine-to-machine API access; adds JWT signing/verification complexity without user identity needs                                                    |
+| **Edge runtime**                              | Incompatible with `postgres` driver and Drizzle ORM; Node.js runtime required                                                                                              |
+| **Transactional outbox for Phase 1**          | Adds significant complexity (outbox table, polling process) for a system with synchronous in-process events; deferred to Phase 2+ when contexts may be deployed separately |
+| **One PostgreSQL schema per bounded context** | Drizzle's multi-schema support adds configuration complexity; naming prefixes provide sufficient isolation for Phase 1                                                     |
+| **Event sourcing**                            | Dramatically increases infrastructure complexity; standard CRUD + domain events is sufficient for Diamond's requirements                                                   |
 
 ## Acceptance Criteria
 
@@ -724,24 +786,24 @@ export async function GET() {
 
 ## Dependencies & Prerequisites
 
-| Dependency | Status | Notes |
-|---|---|---|
-| Supabase project | Provisioned | Project ref: `ghatwshamhctyfpoxtyg` |
-| Supabase PostgreSQL | Available | Connection string needed in `.env.local` |
-| Supabase Storage | Available | Buckets need to be created |
-| Supabase credentials | Needed | URL, anon key, service role key from dashboard |
-| API keys | Needed | Generate at least one key for development |
+| Dependency           | Status      | Notes                                          |
+| -------------------- | ----------- | ---------------------------------------------- |
+| Supabase project     | Provisioned | Project ref: `ghatwshamhctyfpoxtyg`            |
+| Supabase PostgreSQL  | Available   | Connection string needed in `.env.local`       |
+| Supabase Storage     | Available   | Buckets need to be created                     |
+| Supabase credentials | Needed      | URL, anon key, service role key from dashboard |
+| API keys             | Needed      | Generate at least one key for development      |
 
 ## Risk Analysis & Mitigation
 
-| Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|
-| Event loss between DB commit and event dispatch | Medium | Medium | Document as known Phase 1 limitation; add transactional outbox in Phase 2 |
-| Supabase connection limits exceeded in development | Low | Medium | Use session pooler (port 5432); limit pool size in Drizzle config |
-| Path alias misconfiguration breaks imports | Low | High | Set `@/*` → `./src/*` before writing any source files |
-| Next.js Edge runtime accidentally used | Low | High | Set `runtime = 'nodejs'` in `next.config.ts` globally |
-| Drizzle ORM version incompatibility with Next.js 16 | Low | Medium | Pin versions; test `pnpm build` early |
-| API keys leaked in git | Low | Critical | `.gitignore` includes `.env.local`; only `.env.example` committed |
+| Risk                                                | Likelihood | Impact   | Mitigation                                                                |
+| --------------------------------------------------- | ---------- | -------- | ------------------------------------------------------------------------- |
+| Event loss between DB commit and event dispatch     | Medium     | Medium   | Document as known Phase 1 limitation; add transactional outbox in Phase 2 |
+| Supabase connection limits exceeded in development  | Low        | Medium   | Use session pooler (port 5432); limit pool size in Drizzle config         |
+| Path alias misconfiguration breaks imports          | Low        | High     | Set `@/*` → `./src/*` before writing any source files                     |
+| Next.js Edge runtime accidentally used              | Low        | High     | Set `runtime = 'nodejs'` in `next.config.ts` globally                     |
+| Drizzle ORM version incompatibility with Next.js 16 | Low        | Medium   | Pin versions; test `pnpm build` early                                     |
+| API keys leaked in git                              | Low        | Critical | `.gitignore` includes `.env.local`; only `.env.example` committed         |
 
 ## ERD — Infrastructure Tables
 
@@ -780,10 +842,12 @@ erDiagram
 ## References & Research
 
 ### Internal References
+
 - PRD: `PRD.md` — full domain model, bounded contexts, event catalog
 - Linear issue: [GET-5](https://linear.app/getbasalt/issue/GET-5/epic-infrastructure-project-scaffolding-and-cross-cutting-concerns)
 
 ### External References
+
 - [Building APIs with Next.js (Feb 2025)](https://nextjs.org/blog/building-apis-with-nextjs)
 - [Next.js Route Handlers](https://nextjs.org/docs/app/building-your-application/routing/route-handlers)
 - [Next.js Authentication Guide](https://nextjs.org/docs/app/guides/authentication)

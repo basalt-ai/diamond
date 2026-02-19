@@ -5,17 +5,20 @@ We're thrilled you're interested in contributing to Diamond! This guide will hel
 ## Quick Start
 
 1. **Fork and clone**
+
    ```bash
    gh repo fork basalt-ai/diamond --clone
    cd diamond
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Run tests**
+
    ```bash
    npm test
    ```
@@ -66,18 +69,21 @@ npm test -- --grep "scenario generation"
 ## What We're Looking For
 
 ### High Priority
+
 - **New domain templates** for common use cases (e.g., code generation, summarization)
 - **Export integrations** for evaluation platforms (Weights & Biases, MLflow, etc.)
 - **Evolution algorithms** for smarter dataset updates from logs
 - **Performance optimizations** for large-scale scenario generation
 
 ### Medium Priority
+
 - **Documentation improvements** and examples
-- **CLI UX enhancements** 
+- **CLI UX enhancements**
 - **Test coverage** improvements
 - **Bug fixes** and error handling
 
 ### Low Priority
+
 - **New analysis metrics** for dataset quality
 - **UI components** for the review interface
 - **Integration examples** with ML frameworks
@@ -100,6 +106,7 @@ npm run format
 ```
 
 **Key conventions:**
+
 - Use TypeScript with strict settings
 - Prefer composition over inheritance
 - Write self-documenting code with clear variable names
@@ -112,7 +119,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 feat: add coverage analysis for multi-dimensional domains
-fix: handle empty scenario templates gracefully  
+fix: handle empty scenario templates gracefully
 docs: update quickstart with log evolution example
 test: add integration tests for scenario generation
 ```
@@ -120,6 +127,7 @@ test: add integration tests for scenario generation
 ### Pull Request Process
 
 1. **Create a feature branch** from `main`
+
    ```bash
    git checkout -b feat/your-feature-name
    ```
@@ -127,6 +135,7 @@ test: add integration tests for scenario generation
 2. **Make focused changes** - one feature/fix per PR
 
 3. **Add tests** for new functionality
+
    ```bash
    # Add tests in tests/
    npm test -- --coverage
@@ -136,7 +145,7 @@ test: add integration tests for scenario generation
 
 5. **Ensure CI passes**
    - All tests pass
-   - Linting passes  
+   - Linting passes
    - Type checking passes
    - Coverage doesn't decrease
 
@@ -165,14 +174,16 @@ npm test -- --coverage
 ```
 
 **Test categories:**
+
 - **Unit tests**: Test individual functions and classes
-- **Integration tests**: Test component interactions  
+- **Integration tests**: Test component interactions
 - **E2E tests**: Test CLI and full workflows
 - **Snapshot tests**: Test generated outputs
 
 ### Documentation
 
 Update docs when you:
+
 - Add new features or APIs
 - Change existing behavior
 - Fix bugs that affect usage
@@ -196,6 +207,7 @@ npm run docs:dev
 Be respectful, inclusive, and constructive. We're building tools to make AI development better for everyone.
 
 Key principles:
+
 - **Be kind** - Assume good intent
 - **Be helpful** - Share knowledge generously
 - **Be professional** - Keep discussions on-topic
@@ -204,6 +216,7 @@ Key principles:
 ## Recognition
 
 Contributors are recognized in:
+
 - **README.md** - Major contributors listed
 - **Release notes** - Contributors credited for their changes
 - **Discord** - Special contributor role and channel access

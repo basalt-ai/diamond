@@ -1,7 +1,8 @@
-import type { DomainEvent } from "../events/DomainEvent";
 import { generateId } from "@/shared/ids";
-import { Entity } from "./Entity";
 import type { UUID } from "@/shared/types";
+
+import type { DomainEvent } from "../events/DomainEvent";
+import { Entity } from "./Entity";
 
 export abstract class AggregateRoot extends Entity {
   private _domainEvents: DomainEvent[] = [];
@@ -12,7 +13,7 @@ export abstract class AggregateRoot extends Entity {
 
   protected addDomainEvent(
     eventType: string,
-    payload: Record<string, unknown>,
+    payload: Record<string, unknown>
   ): void {
     this._domainEvents.push({
       eventId: generateId(),

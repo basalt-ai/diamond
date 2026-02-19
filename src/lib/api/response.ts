@@ -12,7 +12,7 @@ export function paginated<T>(
   data: T[],
   total: number,
   page: number,
-  pageSize: number,
+  pageSize: number
 ) {
   return NextResponse.json({
     data,
