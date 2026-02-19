@@ -111,7 +111,7 @@ The DatasetVersion state machine (`draft → validating → released → depreca
 // src/contexts/dataset/domain/entities/DatasetVersion.ts
 const VALID_TRANSITIONS: Record<DatasetVersionState, DatasetVersionState[]> = {
   draft: ["validating"],
-  validating: ["released", "draft"],  // Gate-driven: auto-release or rollback
+  validating: ["released", "draft"], // Gate-driven: auto-release or rollback
   released: ["deprecated"],
   deprecated: [],
 };
@@ -196,13 +196,13 @@ return {
 
 ## Gotchas
 
-| Issue | Wrong | Correct |
-| --- | --- | --- |
-| LabelReader method name | `manageLabels.listByTask(taskId)` | `manageLabels.listByTaskId(taskId, page, pageSize)` |
-| Bulk reads on single-entity contexts | Add bulk to existing context | Wrap in adapter loop with error handling |
-| State endpoint response for `validating` | Return `{ state: "validating" }` | Return final state after diagnostics |
-| DATABASE_URL loading | `source .env.local` in bash | Pass `DATABASE_URL=...` directly or use explicit env loader |
-| Diagnostics with no labels | Cohen's kappa = NaN | Default to `1.0` when `sampleCount === 0` |
+| Issue                                    | Wrong                             | Correct                                                     |
+| ---------------------------------------- | --------------------------------- | ----------------------------------------------------------- |
+| LabelReader method name                  | `manageLabels.listByTask(taskId)` | `manageLabels.listByTaskId(taskId, page, pageSize)`         |
+| Bulk reads on single-entity contexts     | Add bulk to existing context      | Wrap in adapter loop with error handling                    |
+| State endpoint response for `validating` | Return `{ state: "validating" }`  | Return final state after diagnostics                        |
+| DATABASE_URL loading                     | `source .env.local` in bash       | Pass `DATABASE_URL=...` directly or use explicit env loader |
+| Diagnostics with no labels               | Cohen's kappa = NaN               | Default to `1.0` when `sampleCount === 0`                   |
 
 ## Prevention Strategies
 
