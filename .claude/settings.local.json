@@ -50,7 +50,13 @@
       "Bash(python3:*)",
       "mcp__linear__list_comments",
       "mcp__linear__list_issue_statuses",
-      "Bash(DATABASE_URL=\"postgresql://theophile@localhost:5432/diamond\" pnpm db:push:*)"
+      "Bash(DATABASE_URL=\"postgresql://theophile@localhost:5432/diamond\" pnpm db:push:*)",
+      "Bash(DATABASE_URL=\"postgresql://theophile@localhost:5432/diamond\" pnpm db:generate:*)",
+      "mcp__linear__get_project",
+      "WebFetch(domain:developers.cloudflare.com)",
+      "WebFetch(domain:aws.amazon.com)",
+      "WebFetch(domain:vercel.com)",
+      "Bash(node -e:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -204,9 +204,7 @@ export class ManageExports {
     return this.repo.list(filter, page, pageSize);
   }
 
-  async getArtifactStream(
-    id: UUID
-  ): Promise<{
+  async getArtifactStream(id: UUID): Promise<{
     stream: ReadableStream;
     filename: string;
     contentType: string;
