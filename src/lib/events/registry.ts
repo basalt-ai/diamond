@@ -1,10 +1,7 @@
-// Event handler registration.
-// Import this module at application startup to wire all cross-context event handlers.
-//
-// Example:
-//   import { eventBus } from "./InProcessEventBus"
-//   import { onEpisodeIngested } from "@/contexts/candidate/handlers"
-//
-//   eventBus.subscribe("episode.ingested", onEpisodeIngested)
+import { onEpisodeIngested } from "@/contexts/candidate/application/handlers/onEpisodeIngested";
+import { onLabelTaskFinalized } from "@/contexts/candidate/application/handlers/onLabelTaskFinalized";
 
-export {};
+import { eventBus } from "./InProcessEventBus";
+
+eventBus.subscribe("episode.ingested", onEpisodeIngested);
+eventBus.subscribe("label_task.finalized", onLabelTaskFinalized);

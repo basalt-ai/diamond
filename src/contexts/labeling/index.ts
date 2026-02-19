@@ -13,10 +13,10 @@ const rubricReader = new ScenarioContextAdapter();
 const candidateReader = new CandidateContextAdapter();
 
 export const manageLabelTasks = new ManageLabelTasks(
-	labelTaskRepo,
-	labelRepo,
-	rubricReader,
-	candidateReader,
+  labelTaskRepo,
+  labelRepo,
+  rubricReader,
+  candidateReader
 );
 
 export const manageLabels = new ManageLabels(labelRepo, labelTaskRepo);

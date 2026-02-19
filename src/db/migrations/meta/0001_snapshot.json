@@ -113,9 +113,7 @@
         "cd_candidates_episode_id_unique": {
           "name": "cd_candidates_episode_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "episode_id"
-          ]
+          "columns": ["episode_id"]
         }
       },
       "policies": {},
@@ -277,9 +275,7 @@
         "lb_label_tasks_candidate_id_unique": {
           "name": "lb_label_tasks_candidate_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "candidate_id"
-          ]
+          "columns": ["candidate_id"]
         }
       },
       "policies": {},
@@ -438,9 +434,7 @@
         "sc_context_profiles_name_unique": {
           "name": "sc_context_profiles_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
+          "columns": ["name"]
         }
       },
       "policies": {},
@@ -498,9 +492,7 @@
         "sc_failure_modes_name_unique": {
           "name": "sc_failure_modes_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
+          "columns": ["name"]
         }
       },
       "policies": {},
@@ -557,9 +549,7 @@
         "sc_risk_tiers_name_unique": {
           "name": "sc_risk_tiers_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
+          "columns": ["name"]
         }
       },
       "policies": {},
@@ -618,10 +608,7 @@
         "sc_rubrics_scenario_type_id_version_unique": {
           "name": "sc_rubrics_scenario_type_id_version_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "scenario_type_id",
-            "version"
-          ]
+          "columns": ["scenario_type_id", "version"]
         }
       },
       "policies": {},
@@ -672,9 +659,7 @@
         "sc_scenario_graph_versions_version_unique": {
           "name": "sc_scenario_graph_versions_version_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "version"
-          ]
+          "columns": ["version"]
         }
       },
       "policies": {},
@@ -703,10 +688,7 @@
       "compositePrimaryKeys": {
         "sc_scenario_type_context_profiles_scenario_type_id_context_profile_id_pk": {
           "name": "sc_scenario_type_context_profiles_scenario_type_id_context_profile_id_pk",
-          "columns": [
-            "scenario_type_id",
-            "context_profile_id"
-          ]
+          "columns": ["scenario_type_id", "context_profile_id"]
         }
       },
       "uniqueConstraints": {},
@@ -736,10 +718,7 @@
       "compositePrimaryKeys": {
         "sc_scenario_type_failure_modes_scenario_type_id_failure_mode_id_pk": {
           "name": "sc_scenario_type_failure_modes_scenario_type_id_failure_mode_id_pk",
-          "columns": [
-            "scenario_type_id",
-            "failure_mode_id"
-          ]
+          "columns": ["scenario_type_id", "failure_mode_id"]
         }
       },
       "uniqueConstraints": {},
@@ -811,10 +790,7 @@
         "sc_scenario_types_parent_id_name_unique": {
           "name": "sc_scenario_types_parent_id_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "parent_id",
-            "name"
-          ]
+          "columns": ["parent_id", "name"]
         }
       },
       "policies": {},

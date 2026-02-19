@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
+  ConcurrencyConflictError,
+  ReferenceIntegrityError,
+} from "@/contexts/scenario/domain/errors";
+import {
   NotFoundError,
   InvalidStateTransitionError,
   DuplicateError,
@@ -49,7 +53,9 @@ export function withApiMiddleware(handler: RouteHandler): RouteHandler {
 
       if (
         error instanceof InvalidStateTransitionError ||
-        error instanceof DuplicateError
+        error instanceof DuplicateError ||
+        error instanceof ReferenceIntegrityError ||
+        error instanceof ConcurrencyConflictError
       ) {
         return errorResponse(409, error.code, error.message, requestId);
       }
