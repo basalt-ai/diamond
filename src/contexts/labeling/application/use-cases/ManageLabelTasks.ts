@@ -3,12 +3,14 @@ import { eventBus } from "@/lib/events/InProcessEventBus";
 import { generateId } from "@/shared/ids";
 import type { UUID } from "@/shared/types";
 
+import { computeAgreement, computeLabelDistribution } from "../../domain/agreement";
 import {
 	LabelTask,
 	type LabelTaskData,
 	type LabelTaskState,
 } from "../../domain/entities/LabelTask";
 import { LabelTaskNotFoundError } from "../../domain/errors";
+import type { LabelType } from "../../domain/value-objects/LabelValue";
 import type { AdjudicationRecord } from "../../domain/value-objects/AdjudicationRecord";
 import type { CandidateReader } from "../ports/CandidateReader";
 import type { LabelRepository } from "../ports/LabelRepository";
@@ -154,6 +156,36 @@ export class ManageLabelTasks {
 		} as Partial<LabelTaskData>);
 
 		await eventBus.publishAll(task.domainEvents);
+
+		// Emit label_task.finalized when resolving adjudication
+		if (
+			targetState === "finalized" &&
+			data.state === "adjudication" &&
+			taskData.finalLabelId
+		) {
+			const labels = await this.labelRepo.getCurrentByTaskId(id);
+			const labelType = labels[0]?.labelType as LabelType | undefined;
+			const agreementScore = labelType
+				? computeAgreement(labels, labelType)
+				: 0;
+			const distribution = labelType
+				? computeLabelDistribution(labels, labelType)
+				: {};
+
+			await eventBus.publish({
+				eventId: generateId(),
+				eventType: "label_task.finalized",
+				aggregateId: id,
+				occurredAt: new Date(),
+				payload: {
+					label_task_id: id,
+					candidate_id: data.candidateId,
+					final_label_id: taskData.finalLabelId,
+					label_distribution: distribution,
+					agreement_score: agreementScore,
+				},
+			});
+		}
 
 		return updated;
 	}
