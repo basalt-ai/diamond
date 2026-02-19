@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { DatasetImmutableError } from "@/contexts/dataset/domain/errors";
+import { PIIRedactionFailedError } from "@/contexts/ingestion/domain/errors";
 import {
   ConcurrencyConflictError,
   ReferenceIntegrityError,
@@ -50,6 +51,10 @@ export function withApiMiddleware(handler: RouteHandler): RouteHandler {
 
       if (error instanceof NotFoundError) {
         return errorResponse(404, "NOT_FOUND", error.message, requestId);
+      }
+
+      if (error instanceof PIIRedactionFailedError) {
+        return errorResponse(502, error.code, error.message, requestId);
       }
 
       if (
