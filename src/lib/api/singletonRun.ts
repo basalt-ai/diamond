@@ -19,3 +19,4 @@ export function createSingletonRunGuard(runType: string) {
 
 export const guardScoringRun = createSingletonRunGuard("scoring");
 export const guardSelectionRun = createSingletonRunGuard("selection");
+export const guardClusteringRun = createSingletonRunGuard("clustering");

@@ -31,6 +31,23 @@ export class PIIRedactionRequiredError extends DomainError {
   }
 }
 
+export class ClusteringRunNotFoundError extends NotFoundError {
+  constructor(id: string) {
+    super("ClusteringRun", id);
+    this.name = "ClusteringRunNotFoundError";
+  }
+}
+
+export class InsufficientDataError extends DomainError {
+  constructor(actual: number, required: number) {
+    super(
+      `Insufficient data for clustering: ${actual} embeddings (need at least ${required})`,
+      "INSUFFICIENT_DATA"
+    );
+    this.name = "InsufficientDataError";
+  }
+}
+
 export class SpendCapExceededError extends DomainError {
   constructor() {
     super("Daily OpenAI token limit exceeded", "SPEND_CAP_EXCEEDED");

@@ -6,6 +6,7 @@ export interface ScenarioTypeData {
   description: string;
   parentId: UUID | null;
   riskTierId: UUID;
+  needsReview: boolean;
   archived: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -21,6 +22,7 @@ export type CreateScenarioTypeInput = {
   description?: string;
   parentId?: string | null;
   riskTierId: string;
+  needsReview?: boolean;
   failureModeIds?: string[];
   contextProfileIds?: string[];
 };

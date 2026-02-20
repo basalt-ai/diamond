@@ -237,6 +237,7 @@ export class DrizzleScenarioRepository implements ScenarioRepository {
         description: input.description ?? "",
         parentId: input.parentId ?? null,
         riskTierId: input.riskTierId,
+        needsReview: input.needsReview ?? false,
       })
       .returning();
     if (!row) throw new Error("Failed to create ScenarioType");

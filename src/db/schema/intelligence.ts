@@ -13,6 +13,7 @@ import {
 import { vector } from "drizzle-orm/pg-core";
 
 import { cdCandidates } from "./candidate";
+import { scScenarioTypes } from "./scenario";
 
 // ── Embeddings ────────────────────────────────────────────────────
 
@@ -74,6 +75,57 @@ export const inScoringRuns = pgTable("in_scoring_runs", {
     .notNull()
     .defaultNow(),
 });
+
+// ── Clustering Runs ──────────────────────────────────────────────
+
+export const inClusteringRuns = pgTable("in_clustering_runs", {
+  id: uuid().primaryKey(),
+  state: varchar({ length: 20 }).notNull().default("pending"),
+  params: jsonb().notNull().default({}),
+  totalCandidates: integer("total_candidates").notNull().default(0),
+  clusterCount: integer("cluster_count").notNull().default(0),
+  noiseCount: integer("noise_count").notNull().default(0),
+  errorMessage: text("error_message"),
+  triggeredBy: varchar("triggered_by", { length: 50 }),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ── Clusters ─────────────────────────────────────────────────────
+
+export const inClusters = pgTable(
+  "in_clusters",
+  {
+    id: uuid().primaryKey(),
+    clusteringRunId: uuid("clustering_run_id")
+      .notNull()
+      .references(() => inClusteringRuns.id, { onDelete: "cascade" }),
+    label: integer().notNull(),
+    size: integer().notNull(),
+    candidateIds: text("candidate_ids").array().notNull().default([]),
+    representativeCandidateIds: text("representative_candidate_ids")
+      .array()
+      .notNull()
+      .default([]),
+    suggestedName: varchar("suggested_name", { length: 255 }),
+    suggestedDescription: text("suggested_description"),
+    inducedScenarioTypeId: uuid("induced_scenario_type_id").references(
+      () => scScenarioTypes.id,
+      { onDelete: "set null" }
+    ),
+    centroid: vector("centroid", { dimensions: 1536 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("in_clusters_run_id_idx").on(t.clusteringRunId)]
+);
 
 // ── Selection Runs ────────────────────────────────────────────────
 

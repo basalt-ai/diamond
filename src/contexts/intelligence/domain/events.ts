@@ -52,3 +52,36 @@ export type UnmappedClusterDetectedEvent = TypedDomainEvent<
   "unmapped_cluster.detected",
   UnmappedClusterDetectedPayload
 >;
+
+export type ClusteringRunCompletedPayload = {
+  clustering_run_id: string;
+  cluster_count: number;
+  total_candidates: number;
+  noise_count: number;
+};
+
+export type ClusteringRunCompletedEvent = TypedDomainEvent<
+  "clustering_run.completed",
+  ClusteringRunCompletedPayload
+>;
+
+export type ClusteringRunFailedPayload = {
+  clustering_run_id: string;
+  error: string;
+};
+
+export type ClusteringRunFailedEvent = TypedDomainEvent<
+  "clustering_run.failed",
+  ClusteringRunFailedPayload
+>;
+
+export type ScenarioInductionCompletedPayload = {
+  clustering_run_id: string;
+  induced_scenario_count: number;
+  mapped_candidate_count: number;
+};
+
+export type ScenarioInductionCompletedEvent = TypedDomainEvent<
+  "scenario_induction.completed",
+  ScenarioInductionCompletedPayload
+>;

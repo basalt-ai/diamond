@@ -63,6 +63,7 @@ export const scScenarioTypes = pgTable(
     description: text().notNull().default(""),
     parentId: uuid("parent_id"),
     riskTierId: uuid("risk_tier_id").notNull(),
+    needsReview: boolean("needs_review").notNull().default(false),
     archived: boolean().notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
