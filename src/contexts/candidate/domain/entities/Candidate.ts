@@ -30,6 +30,8 @@ export interface CandidateData {
   scores: Record<string, unknown>;
   features: Record<string, unknown>;
   selectionRunId: UUID | null;
+  embeddedAt: Date | null;
+  scoringDirty: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,6 +49,8 @@ export class Candidate extends AggregateRoot {
   private _scores: Record<string, unknown>;
   private _features: Record<string, unknown>;
   private _selectionRunId: UUID | null;
+  private _embeddedAt: Date | null;
+  private _scoringDirty: boolean;
   private _createdAt: Date;
   private _updatedAt: Date;
 
@@ -59,6 +63,8 @@ export class Candidate extends AggregateRoot {
     this._scores = data.scores;
     this._features = data.features;
     this._selectionRunId = data.selectionRunId;
+    this._embeddedAt = data.embeddedAt;
+    this._scoringDirty = data.scoringDirty;
     this._createdAt = data.createdAt;
     this._updatedAt = data.updatedAt;
   }
@@ -84,11 +90,32 @@ export class Candidate extends AggregateRoot {
   get selectionRunId(): UUID | null {
     return this._selectionRunId;
   }
+  get embeddedAt(): Date | null {
+    return this._embeddedAt;
+  }
+  get scoringDirty(): boolean {
+    return this._scoringDirty;
+  }
   get createdAt(): Date {
     return this._createdAt;
   }
   get updatedAt(): Date {
     return this._updatedAt;
+  }
+
+  markEmbedded(): void {
+    this._embeddedAt = new Date();
+    this._updatedAt = new Date();
+  }
+
+  markDirty(): void {
+    this._scoringDirty = true;
+    this._updatedAt = new Date();
+  }
+
+  markClean(): void {
+    this._scoringDirty = false;
+    this._updatedAt = new Date();
   }
 
   transitionTo(targetState: CandidateState): void {
@@ -122,6 +149,8 @@ export class Candidate extends AggregateRoot {
       scores: this._scores,
       features: this._features,
       selectionRunId: this._selectionRunId,
+      embeddedAt: this._embeddedAt,
+      scoringDirty: this._scoringDirty,
       createdAt: this._createdAt,
       updatedAt: this._updatedAt,
     };

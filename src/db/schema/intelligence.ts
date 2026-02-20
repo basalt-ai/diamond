@@ -1,0 +1,97 @@
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  real,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
+import { vector } from "drizzle-orm/pg-core";
+
+import { cdCandidates } from "./candidate";
+
+// ── Embeddings ────────────────────────────────────────────────────
+
+export const inEmbeddings = pgTable(
+  "in_embeddings",
+  {
+    id: uuid().primaryKey(),
+    candidateId: uuid("candidate_id")
+      .notNull()
+      .references(() => cdCandidates.id, { onDelete: "restrict" }),
+    embedding: vector("embedding", { dimensions: 1536 }).notNull(),
+    modelId: varchar("model_id", { length: 100 }).notNull(),
+    modelVersion: varchar("model_version", { length: 50 }).notNull(),
+    tokenCount: integer("token_count"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("in_embeddings_candidate_id_idx").on(t.candidateId),
+    uniqueIndex("in_embeddings_candidate_model_uniq").on(
+      t.candidateId,
+      t.modelId
+    ),
+  ]
+);
+
+// ── Scenario Centroids ────────────────────────────────────────────
+
+export const inScenarioCentroids = pgTable("in_scenario_centroids", {
+  scenarioTypeId: uuid("scenario_type_id").primaryKey(),
+  centroid: vector("centroid", { dimensions: 1536 }).notNull(),
+  candidateCount: integer("candidate_count").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ── Scoring Runs ──────────────────────────────────────────────────
+
+export const inScoringRuns = pgTable("in_scoring_runs", {
+  id: uuid().primaryKey(),
+  state: varchar({ length: 20 }).notNull().default("pending"),
+  totalCandidates: integer("total_candidates").notNull().default(0),
+  processedCount: integer("processed_count").notNull().default(0),
+  errorCount: integer("error_count").notNull().default(0),
+  embeddingModelId: varchar("embedding_model_id", { length: 100 }).notNull(),
+  triggeredBy: varchar("triggered_by", { length: 50 }),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  error: text(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ── Selection Runs ────────────────────────────────────────────────
+
+export const inSelectionRuns = pgTable("in_selection_runs", {
+  id: uuid().primaryKey(),
+  state: varchar({ length: 20 }).notNull().default("pending"),
+  constraints: jsonb().notNull(),
+  selectedCount: integer("selected_count").notNull().default(0),
+  totalPoolSize: integer("total_pool_size").notNull().default(0),
+  coverageImprovement: real("coverage_improvement"),
+  triggeredBy: varchar("triggered_by", { length: 50 }),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  error: text(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

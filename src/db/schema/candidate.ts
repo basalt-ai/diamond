@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   jsonb,
   pgTable,
@@ -21,6 +22,8 @@ export const cdCandidates = pgTable(
     scores: jsonb().notNull().default({}),
     features: jsonb().notNull().default({}),
     selectionRunId: uuid("selection_run_id"),
+    embeddedAt: timestamp("embedded_at", { withTimezone: true }),
+    scoringDirty: boolean("scoring_dirty").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
