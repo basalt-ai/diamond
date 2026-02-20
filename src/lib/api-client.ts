@@ -32,11 +32,16 @@ interface ApiErrorEnvelope {
 
 const BASE = "/api/v1";
 
+export interface ApiResponse<T> {
+  data: T;
+  status: number;
+}
+
 async function request<T>(
   method: string,
   path: string,
   body?: unknown
-): Promise<T> {
+): Promise<ApiResponse<T>> {
   const url = `${BASE}${path}`;
   const init: RequestInit = {
     method,
@@ -65,26 +70,30 @@ async function request<T>(
   }
 
   if (res.status === 204) {
-    return undefined as T;
+    return { data: undefined as T, status: res.status };
   }
 
-  return res.json() as Promise<T>;
+  const data = (await res.json()) as T;
+  return { data, status: res.status };
 }
 
 export const api = {
   get<T>(path: string): Promise<T> {
+    return request<T>("GET", path).then((r) => r.data);
+  },
+  getWithStatus<T>(path: string): Promise<ApiResponse<T>> {
     return request<T>("GET", path);
   },
   post<T>(path: string, body?: unknown): Promise<T> {
-    return request<T>("POST", path, body);
+    return request<T>("POST", path, body).then((r) => r.data);
   },
   put<T>(path: string, body?: unknown): Promise<T> {
-    return request<T>("PUT", path, body);
+    return request<T>("PUT", path, body).then((r) => r.data);
   },
   patch<T>(path: string, body?: unknown): Promise<T> {
-    return request<T>("PATCH", path, body);
+    return request<T>("PATCH", path, body).then((r) => r.data);
   },
   del<T = void>(path: string): Promise<T> {
-    return request<T>("DELETE", path);
+    return request<T>("DELETE", path).then((r) => r.data);
   },
 };

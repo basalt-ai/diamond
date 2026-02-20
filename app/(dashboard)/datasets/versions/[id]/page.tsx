@@ -1,9 +1,16 @@
 "use client";
 
-import { ArrowLeftIcon, GitCompareIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  GitCompareIcon,
+  ActivityIcon,
+  BarChart3Icon,
+  GitBranchIcon,
+  LayersIcon,
+} from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -30,9 +37,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useApi } from "@/hooks/use-api";
 import { useMutation } from "@/hooks/use-mutation";
 import type { PaginatedResponse } from "@/lib/api-client";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface DatasetVersion {
   id: string;
@@ -77,13 +89,146 @@ const STATE_TRANSITIONS: Record<
   deprecated: null,
 };
 
+const TABS = ["overview", "quality", "drift", "lineage", "slices"] as const;
+type TabValue = (typeof TABS)[number];
+
 function truncateId(id: string): string {
   return id.slice(0, 8) + "\u2026";
 }
 
-export default function VersionDetailPage() {
+// ---------------------------------------------------------------------------
+// Overview Tab
+// ---------------------------------------------------------------------------
+
+function OverviewTab({ version }: { version: DatasetVersion }) {
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-xs">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">ID</span>
+              <span className="font-mono">{version.id}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Graph Version</span>
+              <span>{version.scenarioGraphVersion}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Candidates</span>
+              <span>{version.candidateIds.length}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Created</span>
+              <span>{new Date(version.createdAt).toLocaleDateString()}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Released</span>
+              <span>
+                {version.releasedAt
+                  ? new Date(version.releasedAt).toLocaleDateString()
+                  : "\u2014"}
+              </span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Diagnostics ID</span>
+              <span className="font-mono">
+                {version.diagnosticsId
+                  ? truncateId(version.diagnosticsId)
+                  : "\u2014"}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Selection Policy</CardTitle>
+            <CardDescription>
+              Policy used to select candidates for this version
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {Object.keys(version.selectionPolicy).length > 0 ? (
+              <JsonViewer data={version.selectionPolicy} defaultExpanded />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No selection policy
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Placeholder tabs (filled in later tasks)
+// ---------------------------------------------------------------------------
+
+function QualityTab({ _versionId }: { _versionId: string }) {
+  return (
+    <Card>
+      <CardContent className="py-12 text-center">
+        <ActivityIcon className="mx-auto mb-2 size-8 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Coming soon</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DriftTab({ _versionId }: { _versionId: string }) {
+  return (
+    <Card>
+      <CardContent className="py-12 text-center">
+        <BarChart3Icon className="mx-auto mb-2 size-8 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Coming soon</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LineageTab({ _versionId }: { _versionId: string }) {
+  return (
+    <Card>
+      <CardContent className="py-12 text-center">
+        <GitBranchIcon className="mx-auto mb-2 size-8 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Coming soon</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SlicesTab({ _versionId }: { _versionId: string }) {
+  return (
+    <Card>
+      <CardContent className="py-12 text-center">
+        <LayersIcon className="mx-auto mb-2 size-8 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Coming soon</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
+function VersionDetailContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const currentTab = (searchParams.get("tab") as TabValue) || "overview";
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -95,7 +240,6 @@ export default function VersionDetailPage() {
     refetch,
   } = useApi<DatasetVersion>(`/dataset-versions/${params.id}`);
 
-  // Fetch sibling versions for comparison picker
   const { data: siblingVersions } = useApi<PaginatedResponse<DatasetVersion>>(
     version
       ? `/dataset-versions?page=1&page_size=100&suite_id=${version.suiteId}`
@@ -119,6 +263,16 @@ export default function VersionDetailPage() {
   function handleTransition() {
     if (!transition) return;
     transitionMutate({ action: transition.action });
+  }
+
+  function handleTabChange(value: string) {
+    const url = new URL(window.location.href);
+    if (value === "overview") {
+      url.searchParams.delete("tab");
+    } else {
+      url.searchParams.set("tab", value);
+    }
+    router.replace(url.pathname + url.search);
   }
 
   function handleCompare() {
@@ -199,106 +353,31 @@ export default function VersionDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-xs">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">ID</span>
-              <span className="font-mono">{version.id}</span>
-            </div>
-            <Separator />
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Graph Version</span>
-              <span>{version.scenarioGraphVersion}</span>
-            </div>
-            <Separator />
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Candidates</span>
-              <span>{version.candidateIds.length}</span>
-            </div>
-            <Separator />
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Created</span>
-              <span>{new Date(version.createdAt).toLocaleDateString()}</span>
-            </div>
-            <Separator />
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Released</span>
-              <span>
-                {version.releasedAt
-                  ? new Date(version.releasedAt).toLocaleDateString()
-                  : "\u2014"}
-              </span>
-            </div>
-            <Separator />
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Diagnostics ID</span>
-              <span className="font-mono">
-                {version.diagnosticsId
-                  ? truncateId(version.diagnosticsId)
-                  : "\u2014"}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+      <Tabs value={currentTab} onValueChange={handleTabChange}>
+        <TabsList variant="line">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="quality">Quality</TabsTrigger>
+          <TabsTrigger value="drift">Drift</TabsTrigger>
+          <TabsTrigger value="lineage">Lineage</TabsTrigger>
+          <TabsTrigger value="slices">Slices</TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Selection Policy</CardTitle>
-            <CardDescription>
-              Policy used to select candidates for this version
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {Object.keys(version.selectionPolicy).length > 0 ? (
-              <JsonViewer data={version.selectionPolicy} defaultExpanded />
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                No selection policy
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Gate Results</CardTitle>
-            <CardDescription>Quality gate evaluation results</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {version.gateResults ? (
-              <JsonViewer data={version.gateResults} defaultExpanded />
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                No gate results available
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Lineage</CardTitle>
-            <CardDescription>
-              Version provenance and derivation chain
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {version.lineage ? (
-              <JsonViewer data={version.lineage} defaultExpanded />
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                No lineage data available
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="overview">
+          <OverviewTab version={version} />
+        </TabsContent>
+        <TabsContent value="quality">
+          <QualityTab _versionId={params.id} />
+        </TabsContent>
+        <TabsContent value="drift">
+          <DriftTab _versionId={params.id} />
+        </TabsContent>
+        <TabsContent value="lineage">
+          <LineageTab _versionId={params.id} />
+        </TabsContent>
+        <TabsContent value="slices">
+          <SlicesTab _versionId={params.id} />
+        </TabsContent>
+      </Tabs>
 
       {transition ? (
         <ConfirmDialog
@@ -368,5 +447,21 @@ export default function VersionDetailPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function VersionDetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6 p-6">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      }
+    >
+      <VersionDetailContent />
+    </Suspense>
   );
 }
