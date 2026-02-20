@@ -77,6 +77,10 @@ const navigation: NavItem[] = [
     title: "Datasets",
     href: "/datasets",
     icon: DatabaseIcon,
+    children: [
+      { title: "Suites", href: "/datasets" },
+      { title: "Eval Results", href: "/datasets/eval-results" },
+    ],
   },
   {
     title: "Imports",
