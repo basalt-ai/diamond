@@ -10,6 +10,10 @@ import type { SliceRepository } from "../ports/SliceRepository";
 export class ManageSlices {
   constructor(private readonly sliceRepo: SliceRepository) {}
 
+  async listByVersion(versionId: UUID): Promise<SliceData[]> {
+    return this.sliceRepo.findByVersionId(versionId);
+  }
+
   async setGolden(
     sliceId: UUID,
     golden: boolean,

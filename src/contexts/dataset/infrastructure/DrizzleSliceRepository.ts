@@ -18,6 +18,14 @@ export class DrizzleSliceRepository implements SliceRepository {
     return (row as unknown as SliceData) ?? null;
   }
 
+  async findByVersionId(versionId: UUID): Promise<SliceData[]> {
+    const rows = await this.db
+      .select()
+      .from(dsSlices)
+      .where(eq(dsSlices.datasetVersionId, versionId));
+    return rows as unknown as SliceData[];
+  }
+
   async updateGolden(
     id: UUID,
     isGolden: boolean,

@@ -53,7 +53,7 @@ import { EmptyState } from "@/components/empty-state";
 import { KpiCard } from "@/components/kpi-card";
 import { useApi } from "@/hooks/use-api";
 import { useMutation } from "@/hooks/use-mutation";
-import type { PaginatedResponse } from "@/lib/api-client";
+import { api, type PaginatedResponse } from "@/lib/api-client";
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, Cell } from "recharts";
 
 // ---------------------------------------------------------------------------
@@ -1129,14 +1129,146 @@ function LineageTab({ versionId }: { versionId: string }) {
   );
 }
 
-function SlicesTab({ _versionId }: { _versionId: string }) {
+// ---------------------------------------------------------------------------
+// Slices types
+// ---------------------------------------------------------------------------
+
+interface SliceData {
+  id: string;
+  datasetVersionId: string;
+  name: string;
+  filter: Record<string, unknown>;
+  candidateIds: string[];
+  isGolden: boolean;
+  lockedAt: string | null;
+  staleCandidateIds: string[] | null;
+  createdAt: string;
+}
+
+function SlicesTab({ versionId }: { versionId: string }) {
+  const { data: slices, isLoading, refetch } = useApi<SliceData[]>(
+    `/dataset-versions/${versionId}/slices`
+  );
+  const [unlockTarget, setUnlockTarget] = useState<SliceData | null>(null);
+
+  function handleToggleGolden(slice: SliceData) {
+    if (slice.isGolden) {
+      // Require confirmation to unlock
+      setUnlockTarget(slice);
+      return;
+    }
+    // Mark as golden immediately
+    api
+      .patch(
+        `/dataset-versions/${versionId}/slices/${slice.id}/golden`,
+        { golden: true }
+      )
+      .then(() => {
+        toast.success(`"${slice.name}" marked as golden`);
+        refetch();
+      })
+      .catch(() => toast.error("Failed to update slice"));
+  }
+
+  function handleConfirmUnlock() {
+    if (!unlockTarget) return;
+    api
+      .patch(
+        `/dataset-versions/${versionId}/slices/${unlockTarget.id}/golden`,
+        { golden: false, force: true }
+      )
+      .then(() => {
+        toast.success(`"${unlockTarget.name}" unlocked`);
+        setUnlockTarget(null);
+        refetch();
+      })
+      .catch(() => toast.error("Failed to unlock slice"));
+  }
+
+  if (isLoading) {
+    return <Skeleton className="h-64 w-full" />;
+  }
+
+  if (!slices || slices.length === 0) {
+    return (
+      <EmptyState
+        icon={LayersIcon}
+        title="No slices"
+        description="This version has no slices defined."
+      />
+    );
+  }
+
   return (
-    <Card>
-      <CardContent className="py-12 text-center">
-        <LayersIcon className="mx-auto mb-2 size-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Coming soon</p>
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="p-0">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="px-4 py-2 font-medium">Name</th>
+                <th className="px-4 py-2 font-medium">Candidates</th>
+                <th className="px-4 py-2 font-medium">Golden</th>
+                <th className="px-4 py-2 font-medium">Stale</th>
+                <th className="px-4 py-2 font-medium">Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {slices.map((s) => (
+                <tr key={s.id} className="border-b">
+                  <td className="px-4 py-2 font-medium">{s.name}</td>
+                  <td className="px-4 py-2">{s.candidateIds.length}</td>
+                  <td className="px-4 py-2">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleGolden(s)}
+                      className="hover:scale-110 transition-transform"
+                      title={
+                        s.isGolden ? "Unlock golden slice" : "Mark as golden"
+                      }
+                    >
+                      <svg
+                        className="size-4"
+                        viewBox="0 0 24 24"
+                        fill={s.isGolden ? "#eab308" : "none"}
+                        stroke={s.isGolden ? "#eab308" : "currentColor"}
+                        strokeWidth="2"
+                      >
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                      </svg>
+                    </button>
+                  </td>
+                  <td className="px-4 py-2">
+                    {s.staleCandidateIds && s.staleCandidateIds.length > 0 ? (
+                      <Badge variant="destructive">
+                        {s.staleCandidateIds.length}
+                      </Badge>
+                    ) : (
+                      "\u2014"
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
+                    {new Date(s.createdAt).toLocaleDateString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      {unlockTarget && (
+        <ConfirmDialog
+          open={!!unlockTarget}
+          onOpenChange={(open) => !open && setUnlockTarget(null)}
+          title="Unlock Golden Slice"
+          description={`Are you sure you want to unlock "${unlockTarget.name}"? This will remove the golden lock.`}
+          confirmLabel="Unlock"
+          variant="destructive"
+          onConfirm={handleConfirmUnlock}
+        />
+      )}
+    </div>
   );
 }
 
@@ -1296,7 +1428,7 @@ function VersionDetailContent() {
           <LineageTab versionId={params.id} />
         </TabsContent>
         <TabsContent value="slices">
-          <SlicesTab _versionId={params.id} />
+          <SlicesTab versionId={params.id} />
         </TabsContent>
       </Tabs>
 
