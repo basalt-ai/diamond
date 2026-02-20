@@ -2,9 +2,9 @@ import { z } from "zod";
 
 import { manageDatasetVersions, runDiagnostics } from "@/contexts/dataset";
 import { withApiMiddleware } from "@/lib/api/middleware";
+import { parseUUID } from "@/lib/api/params";
 import { ok } from "@/lib/api/response";
 import { parseBody } from "@/lib/api/validate";
-import type { UUID } from "@/shared/types";
 
 const transitionSchema = z.object({
   target_state: z.enum(["validating", "deprecated"]),
@@ -14,7 +14,7 @@ const transitionSchema = z.object({
 export const PATCH = withApiMiddleware(async (req, ctx) => {
   const { id } = await ctx.params;
   const { target_state, reason } = await parseBody(req, transitionSchema);
-  const versionId = id as UUID;
+  const versionId = parseUUID(id);
 
   if (target_state === "validating") {
     // Transition to validating, then run diagnostics (which auto-releases or rejects)

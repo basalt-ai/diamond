@@ -4,9 +4,9 @@ import { z } from "zod";
 import { manageLabelTasks } from "@/contexts/labeling";
 import { LABEL_TASK_STATES } from "@/contexts/labeling/domain/entities/LabelTask";
 import { withApiMiddleware } from "@/lib/api/middleware";
+import { parseUUID } from "@/lib/api/params";
 import { ok } from "@/lib/api/response";
 import { parseBody } from "@/lib/api/validate";
-import type { UUID } from "@/shared/types";
 
 const transitionSchema = z.object({
   state: z.enum(LABEL_TASK_STATES),
@@ -29,7 +29,7 @@ const transitionSchema = z.object({
 export const PATCH = withApiMiddleware(async (req: NextRequest, ctx) => {
   const { id } = await ctx.params;
   const body = await parseBody(req, transitionSchema);
-  const result = await manageLabelTasks.transition(id as UUID, body.state, {
+  const result = await manageLabelTasks.transition(parseUUID(id), body.state, {
     assigned_to: body.assigned_to,
     reason: body.reason,
     adjudication_record: body.adjudication_record as
