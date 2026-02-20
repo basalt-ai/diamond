@@ -1,25 +1,22 @@
-import { DomainError } from "@/lib/domain/DomainError";
+import { DomainError, NotFoundError } from "@/lib/domain/DomainError";
 
-export class ScoringRunNotFoundError extends DomainError {
+export class ScoringRunNotFoundError extends NotFoundError {
   constructor(id: string) {
-    super(`ScoringRun ${id} not found`, "SCORING_RUN_NOT_FOUND");
+    super("ScoringRun", id);
     this.name = "ScoringRunNotFoundError";
   }
 }
 
-export class SelectionRunNotFoundError extends DomainError {
+export class SelectionRunNotFoundError extends NotFoundError {
   constructor(id: string) {
-    super(`SelectionRun ${id} not found`, "SELECTION_RUN_NOT_FOUND");
+    super("SelectionRun", id);
     this.name = "SelectionRunNotFoundError";
   }
 }
 
-export class EmbeddingNotFoundError extends DomainError {
+export class EmbeddingNotFoundError extends NotFoundError {
   constructor(candidateId: string) {
-    super(
-      `Embedding not found for candidate ${candidateId}`,
-      "EMBEDDING_NOT_FOUND"
-    );
+    super("Embedding", candidateId);
     this.name = "EmbeddingNotFoundError";
   }
 }
