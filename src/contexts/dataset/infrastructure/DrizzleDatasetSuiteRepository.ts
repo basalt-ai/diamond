@@ -1,4 +1,4 @@
-import { count, desc, eq } from "drizzle-orm";
+import { count, desc, eq, isNotNull, sql } from "drizzle-orm";
 
 import type { Database } from "@/db";
 import { dsDatasetSuites } from "@/db/schema/dataset";
@@ -10,6 +10,7 @@ import type {
   ListSuitesResult,
 } from "../application/ports/DatasetSuiteRepository";
 import type { DatasetSuiteData } from "../domain/entities/DatasetSuite";
+import type { RefreshPolicyData } from "../domain/value-objects/RefreshPolicy";
 
 export class DrizzleDatasetSuiteRepository implements DatasetSuiteRepository {
   constructor(private readonly db: Database) {}
@@ -61,5 +62,30 @@ export class DrizzleDatasetSuiteRepository implements DatasetSuiteRepository {
       .offset(offset);
 
     return { data: rows as DatasetSuiteData[], total };
+  }
+
+  async updateRefreshPolicy(
+    id: UUID,
+    policy: RefreshPolicyData | null
+  ): Promise<DatasetSuiteData> {
+    const [row] = await this.db
+      .update(dsDatasetSuites)
+      .set({
+        refreshPolicy: policy,
+        updatedAt: new Date(),
+      })
+      .where(eq(dsDatasetSuites.id, id))
+      .returning();
+    return row as DatasetSuiteData;
+  }
+
+  async findWithAutoRefreshEnabled(): Promise<DatasetSuiteData[]> {
+    const rows = await this.db
+      .select()
+      .from(dsDatasetSuites)
+      .where(
+        sql`${dsDatasetSuites.refreshPolicy} IS NOT NULL AND (${dsDatasetSuites.refreshPolicy}->>'enabled')::boolean = true`
+      );
+    return rows as DatasetSuiteData[];
   }
 }

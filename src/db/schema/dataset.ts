@@ -19,6 +19,7 @@ export const dsDatasetSuites = pgTable("ds_dataset_suites", {
   id: uuid().primaryKey(),
   name: varchar({ length: 255 }).notNull().unique(),
   description: text().notNull().default(""),
+  refreshPolicy: jsonb("refresh_policy"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

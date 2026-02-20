@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { ComputeDrift } from "./application/use-cases/ComputeDrift";
 import { ComputeVersionDiff } from "./application/use-cases/ComputeVersionDiff";
 import { ManageDatasetSuites } from "./application/use-cases/ManageDatasetSuites";
+import { ManageRefreshPolicies } from "./application/use-cases/ManageRefreshPolicies";
 import { ManageDatasetVersions } from "./application/use-cases/ManageDatasetVersions";
 import { ManageEvalRuns } from "./application/use-cases/ManageEvalRuns";
 import { ManageReleaseGatePolicies } from "./application/use-cases/ManageReleaseGatePolicies";
@@ -38,6 +39,8 @@ const agreementComputer = new AgreementComputer();
 const gateEvaluator = new GateEvaluator();
 
 export const manageDatasetSuites = new ManageDatasetSuites(suiteRepo);
+
+export const manageRefreshPolicies = new ManageRefreshPolicies(suiteRepo);
 
 export const manageDatasetVersions = new ManageDatasetVersions(
   versionRepo,
