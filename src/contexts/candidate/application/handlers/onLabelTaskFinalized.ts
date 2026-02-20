@@ -3,6 +3,7 @@ import {
   NotFoundError,
 } from "@/lib/domain/DomainError";
 import type { DomainEvent } from "@/lib/events/DomainEvent";
+import type { UUID } from "@/shared/types";
 
 import { manageCandidates } from "../../index";
 
@@ -10,10 +11,7 @@ export async function onLabelTaskFinalized(event: DomainEvent): Promise<void> {
   const { candidate_id } = event.payload as { candidate_id: string };
 
   try {
-    await manageCandidates.transition(
-      candidate_id as import("@/shared/types").UUID,
-      "labeled"
-    );
+    await manageCandidates.transition(candidate_id as UUID, "labeled");
   } catch (error) {
     if (
       error instanceof NotFoundError ||

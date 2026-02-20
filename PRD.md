@@ -511,11 +511,11 @@ _Consumer: Candidate context — triggers re-scoring of candidates whose scenari
 
 | Payload Field      | Type    | Description                            |
 | ------------------ | ------- | -------------------------------------- |
-| `rubric_id`        | UUID    | The rubric                             |
-| `scenario_type_id` | UUID    | The scenario this rubric belongs to    |
-| `previous_version` | integer | Old version number                     |
-| `new_version`      | integer | New version number                     |
-| `change_summary`   | string  | Human-readable summary of what changed |
+| `rubricId`         | UUID    | The rubric                             |
+| `scenarioTypeId`   | UUID    | The scenario this rubric belongs to    |
+| `previousVersion`  | integer | Old version number (null if first)     |
+| `newVersion`       | integer | New version number                     |
+| `changeSummary`    | string  | Human-readable summary of what changed |
 
 _Consumer: Labeling context — informational. In-progress tasks keep their pinned version. New tasks use the latest._
 

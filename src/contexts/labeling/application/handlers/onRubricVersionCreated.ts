@@ -7,21 +7,21 @@ import { candidateReader, manageLabelTasks } from "../../index";
 export async function onRubricVersionCreated(
   event: DomainEvent
 ): Promise<void> {
-  const { rubric_id, scenario_type_id } = event.payload as {
-    rubric_id: string;
-    scenario_type_id: string;
+  const { rubricId, scenarioTypeId } = event.payload as {
+    rubricId: string;
+    scenarioTypeId: string;
   };
 
   const candidates = await candidateReader.listByState(
     "selected",
-    scenario_type_id as UUID
+    scenarioTypeId as UUID
   );
 
   for (const candidate of candidates) {
     try {
       await manageLabelTasks.create({
         candidate_id: candidate.id,
-        rubric_id: rubric_id,
+        rubric_id: rubricId,
       });
     } catch (error) {
       if (error instanceof DuplicateError) continue;

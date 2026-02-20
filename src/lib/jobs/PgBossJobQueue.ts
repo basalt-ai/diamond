@@ -43,15 +43,11 @@ export class PgBossJobQueue implements JobQueue {
     if (options?.pollingIntervalSeconds != null) {
       workOptions.pollingIntervalSeconds = options.pollingIntervalSeconds;
     }
-    await this.boss.work<TData>(
-      name,
-      workOptions,
-      async (jobs) => {
-        for (const job of jobs) {
-          await handler({ id: job.id, data: job.data });
-        }
+    await this.boss.work<TData>(name, workOptions, async (jobs) => {
+      for (const job of jobs) {
+        await handler({ id: job.id, data: job.data });
       }
-    );
+    });
   }
 
   async schedule(name: string, cron: string, data?: unknown): Promise<void> {

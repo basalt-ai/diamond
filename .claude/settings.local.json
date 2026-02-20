@@ -85,7 +85,16 @@
       "Bash(DATABASE_URL=\"postgresql://localhost/diamond\" pnpm db:migrate:*)",
       "Bash(brew list:*)",
       "Bash(brew install:*)",
-      "Bash(pg_config:*)"
+      "Bash(pg_config:*)",
+      "Bash(aws sts get-caller-identity:*)",
+      "Bash(aws s3 ls:*)",
+      "Bash(aws s3 cp:*)",
+      "Bash(aws s3 sync:*)",
+      "Bash(git status:*)",
+      "Bash(pnpm ls:*)",
+      "Bash(pip3 install:*)",
+      "Bash(DATABASE_URL=\"postgresql://localhost:5432/diamond\" pnpm db:seed:*)",
+      "Bash(grep:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

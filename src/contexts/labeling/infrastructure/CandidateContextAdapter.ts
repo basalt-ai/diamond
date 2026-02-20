@@ -1,4 +1,5 @@
 import { manageCandidates } from "@/contexts/candidate";
+import type { CandidateState } from "@/contexts/candidate/domain/entities/Candidate";
 import { NotFoundError } from "@/lib/domain/DomainError";
 import type { UUID } from "@/shared/types";
 
@@ -35,8 +36,7 @@ export class CandidateContextAdapter implements CandidateReader {
   ): Promise<Array<{ id: UUID; scenario_type_id: UUID | null }>> {
     const result = await manageCandidates.list(
       {
-        state:
-          state as import("@/contexts/candidate/domain/entities/Candidate").CandidateState,
+        state: state as CandidateState,
         scenarioTypeId,
       },
       1,
