@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { DatasetImmutableError } from "@/contexts/dataset/domain/errors";
-import { PIIRedactionFailedError } from "@/contexts/ingestion/domain/errors";
+import {
+  MappingValidationError,
+  PIIRedactionFailedError,
+  SchemaDiscoveryError,
+} from "@/contexts/ingestion/domain/errors";
 import {
   ConcurrencyConflictError,
   ReferenceIntegrityError,
@@ -55,6 +59,14 @@ export function withApiMiddleware(handler: RouteHandler): RouteHandler {
 
       if (error instanceof PIIRedactionFailedError) {
         return errorResponse(502, error.code, error.message, requestId);
+      }
+
+      if (error instanceof SchemaDiscoveryError) {
+        return errorResponse(422, error.code, error.message, requestId);
+      }
+
+      if (error instanceof MappingValidationError) {
+        return errorResponse(422, error.code, error.message, requestId);
       }
 
       if (

@@ -30,11 +30,11 @@ interface Candidate {
 }
 
 const VALID_TRANSITIONS: Record<string, { action: string; label: string }[]> = {
-  raw: [{ action: "score", label: "Score" }],
-  scored: [{ action: "select", label: "Select" }],
-  selected: [{ action: "label", label: "Label" }],
-  labeled: [{ action: "validate", label: "Validate" }],
-  validated: [{ action: "release", label: "Release" }],
+  raw: [{ action: "scored", label: "Score" }],
+  scored: [{ action: "selected", label: "Select" }],
+  selected: [{ action: "labeled", label: "Label" }],
+  labeled: [{ action: "validated", label: "Validate" }],
+  validated: [{ action: "released", label: "Release" }],
   released: [],
 };
 
@@ -73,7 +73,7 @@ export default function CandidateDetailPage() {
   } | null>(null);
 
   const { mutate, isPending } = useMutation<Candidate>(
-    "POST",
+    "PATCH",
     `/candidates/${candidateId}/state`,
     {
       onSuccess: () => {
@@ -231,7 +231,7 @@ export default function CandidateDetailPage() {
         confirmLabel={confirmAction?.label ?? "Confirm"}
         onConfirm={() => {
           if (confirmAction) {
-            mutate({ action: confirmAction.action });
+            mutate({ target_state: confirmAction.action });
           }
         }}
       />

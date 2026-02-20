@@ -1,6 +1,7 @@
 import { DuplicateError, NotFoundError } from "@/lib/domain/DomainError";
 import type { DomainEvent } from "@/lib/events/DomainEvent";
-import type { UUID } from "@/shared/types";
+
+import { manageExports } from "../../index";
 
 export async function onDatasetVersionReleased(
   event: DomainEvent
@@ -9,9 +10,8 @@ export async function onDatasetVersionReleased(
     dataset_version_id: string;
   };
   try {
-    const { manageExports } = await import("@/contexts/export");
     await manageExports.create({
-      dataset_version_id: dataset_version_id as UUID as string,
+      dataset_version_id: dataset_version_id as string,
       format: "jsonl",
     });
   } catch (error) {

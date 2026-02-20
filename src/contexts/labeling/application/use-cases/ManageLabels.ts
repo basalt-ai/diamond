@@ -1,3 +1,4 @@
+import { ApiError } from "@/lib/api/errors";
 import { eventBus } from "@/lib/events/InProcessEventBus";
 import { generateId } from "@/shared/ids";
 import type { UUID } from "@/shared/types";
@@ -38,7 +39,6 @@ export class ManageLabels {
       throw new LabelTaskNotFoundError(taskId);
     }
     if (task.state !== "in_progress") {
-      const { ApiError } = await import("@/lib/api/errors");
       throw new ApiError(
         409,
         "INVALID_STATE",

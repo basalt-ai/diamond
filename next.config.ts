@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["postgres"],
+  serverExternalPackages: ["duckdb", "duckdb-async", "postgres"],
 };
 
 export default nextConfig;

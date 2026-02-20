@@ -14,12 +14,16 @@ const stateColorMap: Record<string, string> = {
   adjudication: "bg-chart-4/20 text-chart-4",
   validating: "bg-primary/20 text-primary",
   processing: "bg-primary/20 text-primary",
+  discovered: "bg-chart-4/20 text-chart-4",
+  mapped: "bg-chart-4/20 text-chart-4",
+  importing: "bg-primary/20 text-primary",
   // Success/terminal
   labeled: "bg-chart-1/20 text-chart-1",
   validated: "bg-chart-1/20 text-chart-1",
   released: "bg-chart-1/20 text-chart-1",
   finalized: "bg-chart-1/20 text-chart-1",
   completed: "bg-chart-1/20 text-chart-1",
+  completed_with_errors: "bg-chart-4/20 text-chart-4",
   // Negative/error
   cancelled: "bg-destructive/20 text-destructive",
   failed: "bg-destructive/20 text-destructive",

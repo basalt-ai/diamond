@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1771518539365,
-      "tag": "0000_add-candidate-table",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1771520322023,
-      "tag": "0001_cooing_iron_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1771526765953,
-      "tag": "0002_tiny_northstar",
+      "when": 1771545323247,
+      "tag": "0000_init",
       "breakpoints": true
     }
   ]

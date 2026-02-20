@@ -11,6 +11,36 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+// ── BulkSource (Aggregate Root) ───────────────────────────────────
+
+export const igBulkSources = pgTable(
+  "ig_bulk_sources",
+  {
+    id: uuid().primaryKey(),
+    name: varchar({ length: 255 }).notNull(),
+    uri: varchar({ length: 2048 }).notNull(),
+    format: varchar({ length: 50 }),
+    status: varchar({ length: 50 }).notNull().default("pending"),
+    sourceLabel: varchar("source_label", { length: 255 }).notNull(),
+    discoveredSchema: jsonb("discovered_schema"),
+    fieldMapping: jsonb("field_mapping"),
+    fileChecksum: varchar("file_checksum", { length: 128 }),
+    rowCount: integer("row_count"),
+    importProgress: jsonb("import_progress"),
+    errorLog: jsonb("error_log"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("ig_bulk_sources_status_idx").on(t.status),
+    index("ig_bulk_sources_created_at_idx").on(t.createdAt),
+  ]
+);
+
 // ── Episode (Aggregate Root) ──────────────────────────────────────
 
 export const igEpisodes = pgTable(

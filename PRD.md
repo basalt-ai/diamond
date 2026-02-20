@@ -111,6 +111,7 @@ Each bounded context has clearly defined aggregate roots. All mutations go throu
 | Context   | Aggregate Root     | Owned Entities / Value Objects                                                                                       |
 | --------- | ------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | Ingestion | **Episode**        | EpisodeInput (VO), EpisodeOutput (VO), Trace (VO), Outcome (VO), UserSegment (VO)                                    |
+| Ingestion | **BulkSource**     | SourceSchema (VO), FieldMapping (VO), ImportProgress (VO)                                                            |
 | Scenario  | **ScenarioType**   | Rubric (entity, versioned), FailureMode (entity, shared), RiskTier (entity, shared), ContextProfile (entity, shared) |
 | Scenario  | **ScenarioGraph**  | ScenarioGraphVersion (entity, immutable snapshot)                                                                    |
 | Candidate | **Candidate**      | ScoreVector (VO), FeatureSet (VO), ScenarioMapping (VO)                                                              |
@@ -131,20 +132,29 @@ Each bounded context follows hexagonal architecture. **Inbound ports** define wh
 
 **Inbound Ports (Driving)**
 
-| Port            | Description                                    | Adapter(s)                               |
-| --------------- | ---------------------------------------------- | ---------------------------------------- |
-| `IngestEpisode` | Accept raw data, validate, redact PII, persist | REST API, Webhook receiver, CLI importer |
-| `GetEpisode`    | Retrieve a stored episode by ID                | REST API                                 |
-| `ListEpisodes`  | Filter/paginate episodes                       | REST API                                 |
+| Port                 | Description                                                 | Adapter(s)                               |
+| -------------------- | ----------------------------------------------------------- | ---------------------------------------- |
+| `IngestEpisode`      | Accept raw data, validate, redact PII, persist              | REST API, Webhook receiver, CLI importer |
+| `GetEpisode`         | Retrieve a stored episode by ID                             | REST API                                 |
+| `ListEpisodes`       | Filter/paginate episodes                                    | REST API                                 |
+| `CreateBulkSource`   | Reference an external dataset for import                    | REST API                                 |
+| `DiscoverSchema`     | Scan a dataset file and discover columns/types/samples      | REST API                                 |
+| `SubmitFieldMapping` | Define how source columns map to Episode fields             | REST API                                 |
+| `PreviewBulkImport`  | Preview N rows transformed through the mapping (no persist) | REST API                                 |
+| `StartBulkImport`    | Batch-ingest mapped rows through the Episode pipeline       | REST API                                 |
+| `GetBulkSource`      | Retrieve a BulkSource with status and progress              | REST API                                 |
+| `ListBulkSources`    | Filter/paginate BulkSources                                 | REST API                                 |
 
 **Outbound Ports (Driven)**
 
-| Port                | Description                                       | Adapter(s)                                             |
-| ------------------- | ------------------------------------------------- | ------------------------------------------------------ |
-| `EpisodeRepository` | Persist and query episode metadata                | PostgreSQL adapter                                     |
-| `ArtifactStore`     | Store raw episode artifacts (transcripts, traces) | S3-compatible adapter                                  |
-| `PIIRedactor`       | Detect and redact PII from episode content        | Rule-based adapter, LLM-based adapter (future)         |
-| `EventPublisher`    | Publish domain events to other contexts           | In-process event bus (Phase 1), message queue (future) |
+| Port                   | Description                                         | Adapter(s)                                             |
+| ---------------------- | --------------------------------------------------- | ------------------------------------------------------ |
+| `EpisodeRepository`    | Persist and query episode metadata                  | PostgreSQL adapter                                     |
+| `BulkSourceRepository` | Persist BulkSource state, schema, mapping, progress | PostgreSQL adapter                                     |
+| `ArtifactStore`        | Store raw episode artifacts (transcripts, traces)   | S3-compatible adapter                                  |
+| `PIIRedactor`          | Detect and redact PII from episode content          | Rule-based adapter, LLM-based adapter (future)         |
+| `TabularDataSource`    | Discover schema and read rows from tabular files    | DuckDB adapter (CSV, Parquet, JSONL, DuckDB)           |
+| `EventPublisher`       | Publish domain events to other contexts             | In-process event bus (Phase 1), message queue (future) |
 
 ---
 
@@ -283,6 +293,7 @@ Each bounded context follows hexagonal architecture. **Inbound ports** define wh
 - Normalization rules
 - PII redaction pipeline
 - Episode aggregate (canonical form)
+- BulkSource aggregate (schema-agnostic dataset import)
 
 **Does NOT own:** What the episode means (scenario mapping), whether it's useful (scoring), or how it's labeled.
 
@@ -291,8 +302,11 @@ Each bounded context follows hexagonal architecture. **Inbound ports** define wh
 - Every Episode has a stable `episode_id` derived from source + trace identifiers
 - PII redaction runs before any persistence
 - Raw artifacts stored immutably in object storage; structured metadata in OLAP store
+- BulkSource schema discovery runs via DuckDB before any mapping or ingestion
+- BulkSource field mapping is validated against discovered schema before import
+- Bulk-imported episodes flow through the same pipeline as individually ingested episodes (dedup, PII, artifacts, events)
 
-**Emits events:** `EpisodeIngested`
+**Emits events:** `EpisodeIngested`, `BulkImportCompleted`
 **Consumes events:** (none — source context)
 
 ---
@@ -464,6 +478,20 @@ Every event follows this envelope:
 | `artifact_uri`          | string    | Object store URI for full episode content             |
 
 _Note: The payload is a summary. Consumers that need full episode content use the `artifact_uri` or call the `EpisodeReader` port._
+
+**`bulk_import.completed`** — A bulk source import has finished processing all rows.
+
+| Payload Field       | Type    | Description                                     |
+| ------------------- | ------- | ----------------------------------------------- |
+| `bulk_source_id`    | UUID    | The BulkSource that completed                   |
+| `source_label`      | string  | The Episode.source value used for imported rows |
+| `total_rows`        | integer | Total rows in the source file                   |
+| `rows_succeeded`    | integer | Episodes successfully created                   |
+| `rows_failed`       | integer | Rows that failed ingestion                      |
+| `rows_deduplicated` | integer | Rows skipped due to dedup                       |
+| `status`            | string  | `completed` or `completed_with_errors`          |
+
+_Note: Each individual episode also emits `episode.ingested` during the import. This summary event fires once at the end._
 
 ---
 
@@ -882,6 +910,22 @@ The complete event flow across contexts, ordered by the typical lifecycle:
 | `model_version` | string    | Which model produced the output            |
 | `metadata`      | object    | Arbitrary key-value pairs from source      |
 
+#### BulkSource (Ingestion Context)
+
+| Field               | Type      | Description                                                                                    |
+| ------------------- | --------- | ---------------------------------------------------------------------------------------------- |
+| `id`                | UUID      | Stable identifier                                                                              |
+| `name`              | string    | Human-readable name for this import                                                            |
+| `uri`               | string    | File path or S3 URI to the source dataset                                                      |
+| `format`            | string?   | Auto-detected file format (csv, parquet, jsonl, duckdb)                                        |
+| `status`            | enum      | `pending`, `discovered`, `mapped`, `importing`, `completed`, `completed_with_errors`, `failed` |
+| `source_label`      | string    | Becomes `Episode.source` for dedup isolation (default: `bulk:{id}`)                            |
+| `discovered_schema` | object?   | `{ columns: [{ name, type, nullable, sample_values }], row_count }`                            |
+| `field_mapping`     | object?   | User-defined column → Episode field mapping                                                    |
+| `file_checksum`     | string?   | SHA-256 at discovery time for change detection                                                 |
+| `import_progress`   | object?   | `{ total, processed, succeeded, failed, deduplicated, started_at, completed_at }`              |
+| `error_log`         | object[]? | Row-level errors capped at 1000 entries                                                        |
+
 #### ScenarioType (Scenario Context)
 
 | Field              | Type   | Description                            |
@@ -1059,14 +1103,19 @@ Each Candidate carries a score vector computed by the Scoring Engine:
 | Basic diagnostics           | Dataset   | Redundancy (near-duplicate detection), simple label agreement                          |
 | Export pipeline             | Export    | JSONL export, Cobalt format export                                                     |
 | Release gates (basic)       | Dataset   | Block release if agreement < threshold                                                 |
+| BulkSource schema discovery | Ingestion | DuckDB-powered schema scan for CSV, Parquet, JSONL files                               |
+| BulkSource field mapping    | Ingestion | User-defined column → Episode field mapping with validation                            |
+| BulkSource batch import     | Ingestion | Batch ingest mapped rows through existing Episode pipeline (dedup, PII, events)        |
+| BulkSource preview          | Ingestion | Preview transformed rows before committing to full import                              |
 
 ### 6.2 Domain Events Wired
 
-| Event                    | Producer  | Consumer  | Effect                             |
-| ------------------------ | --------- | --------- | ---------------------------------- |
-| `EpisodeIngested`        | Ingestion | Candidate | Creates a Candidate in `raw` state |
-| `LabelFinalized`         | Labeling  | Candidate | Transitions candidate to `labeled` |
-| `DatasetVersionReleased` | Dataset   | Export    | Triggers default export jobs       |
+| Event                    | Producer  | Consumer   | Effect                                     |
+| ------------------------ | --------- | ---------- | ------------------------------------------ |
+| `EpisodeIngested`        | Ingestion | Candidate  | Creates a Candidate in `raw` state         |
+| `BulkImportCompleted`    | Ingestion | (internal) | Summary event after batch import completes |
+| `LabelFinalized`         | Labeling  | Candidate  | Transitions candidate to `labeled`         |
+| `DatasetVersionReleased` | Dataset   | Export     | Triggers default export jobs               |
 
 ### 6.3 What Gets Deferred
 
@@ -1085,6 +1134,18 @@ Each Candidate carries a score vector computed by the Scoring Engine:
 POST   /api/v1/episodes                    # Ingest an episode
 GET    /api/v1/episodes/:id                 # Retrieve an episode
 GET    /api/v1/episodes                     # List/filter episodes
+```
+
+**Bulk Import**
+
+```
+POST   /api/v1/bulk-sources                 # Create a bulk source
+GET    /api/v1/bulk-sources                 # List bulk sources
+GET    /api/v1/bulk-sources/:id             # Get status + progress
+POST   /api/v1/bulk-sources/:id/discover    # Discover schema via DuckDB
+PUT    /api/v1/bulk-sources/:id/mapping     # Submit field mapping
+POST   /api/v1/bulk-sources/:id/preview     # Preview mapped rows
+POST   /api/v1/bulk-sources/:id/import      # Start batch import
 ```
 
 **Scenario**
@@ -1361,6 +1422,7 @@ All endpoints are prefixed with `/api/v1/`. Authentication via API key in `Autho
 | Context               | Base Path                                                                                              | Phase |
 | --------------------- | ------------------------------------------------------------------------------------------------------ | ----- |
 | Ingestion             | `/episodes`                                                                                            | 1     |
+| Ingestion (Bulk)      | `/bulk-sources`                                                                                        | 1     |
 | Scenario              | `/scenario-types`, `/failure-modes`, `/risk-tiers`, `/context-profiles`, `/rubrics`, `/scenario-graph` | 1     |
 | Candidate             | `/candidates`                                                                                          | 1     |
 | Candidate (Scoring)   | `/scoring`, `/candidates/:id/scores`, `/candidates/:id/features`                                       | 2     |
@@ -1392,23 +1454,26 @@ All endpoints are prefixed with `/api/v1/`. Authentication via API key in `Autho
 
 ## 12. Glossary
 
-| Term               | Definition                                                                                       |
-| ------------------ | ------------------------------------------------------------------------------------------------ |
-| **Episode**        | A normalized production interaction (user messages + model outputs + trace + outcomes)           |
-| **ScenarioType**   | A category of user intent or task family in the taxonomy                                         |
-| **FailureMode**    | A specific way the model can fail (hallucination, refusal error, etc.)                           |
-| **RiskTier**       | A business/safety/compliance risk classification with numeric weight                             |
-| **ContextProfile** | A description of interaction characteristics (turn count, tools, languages)                      |
-| **Rubric**         | A versioned evaluation criteria definition for a scenario                                        |
-| **Candidate**      | An episode enriched with scores, features, and scenario mapping — eligible for dataset inclusion |
-| **Score Vector**   | An 8-dimensional assessment of a candidate's value for dataset inclusion                         |
-| **Label**          | An annotation on a candidate, with type, value, confidence, and provenance                       |
-| **LabelTask**      | A unit of annotation work assigned to an annotator                                               |
-| **DatasetSuite**   | A named collection of dataset versions (e.g. "Core", "High Risk")                                |
-| **DatasetVersion** | An immutable, released set of labeled candidates with full lineage                               |
-| **Slice**          | A filtered subset of a dataset version (by scenario, risk, time, etc.)                           |
-| **Selection Run**  | A reproducible execution of the optimizer that picks candidates for labeling                     |
-| **Coverage**       | The percentage of known scenarios/failure modes represented in a dataset                         |
-| **Drift**          | Divergence between the production data distribution and the dataset distribution                 |
-| **Golden Slice**   | A locked subset preserved across versions for long-term regression comparison                    |
-| **Lineage**        | The full provenance chain: which episodes, labels, rubrics, and policies produced a dataset      |
+| Term               | Definition                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------- |
+| **Episode**        | A normalized production interaction (user messages + model outputs + trace + outcomes)                    |
+| **ScenarioType**   | A category of user intent or task family in the taxonomy                                                  |
+| **FailureMode**    | A specific way the model can fail (hallucination, refusal error, etc.)                                    |
+| **RiskTier**       | A business/safety/compliance risk classification with numeric weight                                      |
+| **ContextProfile** | A description of interaction characteristics (turn count, tools, languages)                               |
+| **Rubric**         | A versioned evaluation criteria definition for a scenario                                                 |
+| **Candidate**      | An episode enriched with scores, features, and scenario mapping — eligible for dataset inclusion          |
+| **Score Vector**   | An 8-dimensional assessment of a candidate's value for dataset inclusion                                  |
+| **Label**          | An annotation on a candidate, with type, value, confidence, and provenance                                |
+| **LabelTask**      | A unit of annotation work assigned to an annotator                                                        |
+| **DatasetSuite**   | A named collection of dataset versions (e.g. "Core", "High Risk")                                         |
+| **DatasetVersion** | An immutable, released set of labeled candidates with full lineage                                        |
+| **Slice**          | A filtered subset of a dataset version (by scenario, risk, time, etc.)                                    |
+| **Selection Run**  | A reproducible execution of the optimizer that picks candidates for labeling                              |
+| **Coverage**       | The percentage of known scenarios/failure modes represented in a dataset                                  |
+| **Drift**          | Divergence between the production data distribution and the dataset distribution                          |
+| **Golden Slice**   | A locked subset preserved across versions for long-term regression comparison                             |
+| **Lineage**        | The full provenance chain: which episodes, labels, rubrics, and policies produced a dataset               |
+| **BulkSource**     | A referenced external dataset (CSV, Parquet, JSONL) with discovered schema and user-defined field mapping |
+| **FieldMapping**   | A user-defined mapping from source dataset columns to Diamond Episode fields                              |
+| **SourceSchema**   | The auto-discovered column names, types, and sample values from a BulkSource file                         |

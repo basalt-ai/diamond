@@ -8,6 +8,7 @@ import {
   PIIRedactionFailedError,
 } from "../../domain/errors";
 import type { ConnectorRegistry } from "../../infrastructure/connectors/ConnectorRegistry";
+import type { NormalizedEpisode } from "../../infrastructure/connectors/types";
 import type { ArtifactStore } from "../ports/ArtifactStore";
 import type {
   EpisodeRepository,
@@ -55,7 +56,20 @@ export class ManageEpisodes {
       input as unknown as Record<string, unknown>
     );
 
-    // 2. Check dedup — idempotent return if exists
+    // 2. Ingest the normalized episode
+    return this.ingestNormalized(
+      source,
+      normalized,
+      input.scenario_type_id as UUID | undefined
+    );
+  }
+
+  async ingestNormalized(
+    source: string,
+    normalized: NormalizedEpisode,
+    scenarioTypeId?: UUID
+  ): Promise<IngestResult> {
+    // 1. Check dedup — idempotent return if exists
     const existing = await this.repo.findBySourceAndTraceId(
       source,
       normalized.sourceTraceId
@@ -64,7 +78,7 @@ export class ManageEpisodes {
       return { episode: existing, isNew: false };
     }
 
-    // 3. PII redaction on stringified data fields
+    // 2. PII redaction on stringified data fields
     const dataToRedact = {
       inputs: normalized.inputs,
       outputs: normalized.outputs,
@@ -87,7 +101,7 @@ export class ManageEpisodes {
       );
     }
 
-    // 4. Prepare episode data
+    // 3. Prepare episode data
     const id = generateId();
     const artifactPath = `episodes/${id}.json`;
     const artifactBuffer = Buffer.from(
@@ -101,13 +115,13 @@ export class ManageEpisodes {
       })
     );
 
-    // 5. Store artifact
+    // 4. Store artifact
     const { sizeBytes } = await this.artifactStore.write(
       artifactPath,
       artifactBuffer
     );
 
-    // 6. Persist metadata (compensate on failure)
+    // 5. Persist metadata (compensate on failure)
     let episode: EpisodeData;
     try {
       episode = await this.repo.insert({
@@ -124,7 +138,7 @@ export class ManageEpisodes {
         locale: normalized.userSegment.locale ?? null,
         planTier: normalized.userSegment.planTier ?? null,
         device: normalized.userSegment.device ?? null,
-        scenarioTypeId: (input.scenario_type_id as UUID) ?? null,
+        scenarioTypeId: scenarioTypeId ?? null,
         hasNegativeFeedback: normalized.hasNegativeFeedback,
         artifactUri: artifactPath,
         artifactSizeBytes: sizeBytes,
@@ -137,7 +151,7 @@ export class ManageEpisodes {
       throw error;
     }
 
-    // 7. Emit event
+    // 6. Emit event
     await eventBus.publish({
       eventId: generateId(),
       eventType: "episode.ingested",

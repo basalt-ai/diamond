@@ -1,3 +1,4 @@
+import { ApiError } from "@/lib/api/errors";
 import { DuplicateError, NotFoundError } from "@/lib/domain/DomainError";
 import { eventBus } from "@/lib/events/InProcessEventBus";
 import { generateId } from "@/shared/ids";
@@ -70,7 +71,6 @@ export class ManageDatasetVersions {
       (c) => c.state !== "validated" && c.state !== "released"
     );
     if (ineligible.length > 0) {
-      const { ApiError } = await import("@/lib/api/errors");
       throw new ApiError(
         422,
         "INELIGIBLE_CANDIDATES",

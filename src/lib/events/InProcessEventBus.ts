@@ -4,6 +4,7 @@ import type { EventHandler, EventSubscriber } from "./EventSubscriber";
 
 export class InProcessEventBus implements EventPublisher, EventSubscriber {
   private handlers = new Map<string, Set<EventHandler>>();
+  private registryLoaded = false;
 
   subscribe(eventType: string, handler: EventHandler): void {
     if (!this.handlers.has(eventType)) {
@@ -12,7 +13,14 @@ export class InProcessEventBus implements EventPublisher, EventSubscriber {
     this.handlers.get(eventType)!.add(handler);
   }
 
+  private async ensureRegistry(): Promise<void> {
+    if (this.registryLoaded) return;
+    this.registryLoaded = true;
+    await import("./registry");
+  }
+
   async publish(event: DomainEvent): Promise<void> {
+    await this.ensureRegistry();
     const handlers = this.handlers.get(event.eventType);
     if (!handlers) return;
 

@@ -105,7 +105,7 @@ export default function VersionDetailPage() {
   const transition = version ? STATE_TRANSITIONS[version.state] : null;
 
   const { mutate: transitionMutate, isPending: transitionPending } =
-    useMutation("POST", `/dataset-versions/${params.id}/state`, {
+    useMutation("PATCH", `/dataset-versions/${params.id}/state`, {
       onSuccess: () => {
         toast.success("State transition successful");
         setConfirmOpen(false);

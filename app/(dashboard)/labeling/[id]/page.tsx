@@ -382,7 +382,7 @@ export default function LabelTaskDetailPage() {
   const [confirmAction, setConfirmAction] = useState<StateAction | null>(null);
 
   const { mutate: transitionState, isPending: isTransitioning } = useMutation(
-    "POST",
+    "PATCH",
     `/label-tasks/${taskId}/state`,
     {
       onSuccess: () => {

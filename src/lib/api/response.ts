@@ -25,6 +25,10 @@ export function paginated<T>(
   });
 }
 
+export function accepted<T>(data: T) {
+  return NextResponse.json(data, { status: 202 });
+}
+
 export function noContent() {
   return new NextResponse(null, { status: 204 });
 }

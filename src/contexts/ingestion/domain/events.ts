@@ -17,3 +17,18 @@ export type EpisodeIngestedEvent = TypedDomainEvent<
   "episode.ingested",
   EpisodeIngestedPayload
 >;
+
+export type BulkImportCompletedPayload = {
+  bulk_source_id: string;
+  source_label: string;
+  total_rows: number;
+  rows_succeeded: number;
+  rows_failed: number;
+  rows_deduplicated: number;
+  status: string;
+};
+
+export type BulkImportCompletedEvent = TypedDomainEvent<
+  "bulk_import.completed",
+  BulkImportCompletedPayload
+>;

@@ -1,3 +1,4 @@
+import { manageLabelTasks, manageLabels } from "@/contexts/labeling";
 import type { UUID } from "@/shared/types";
 
 import type {
@@ -9,8 +10,6 @@ export class LabelContextAdapter implements LabelReader {
   async getLabelsForCandidates(
     candidateIds: UUID[]
   ): Promise<Map<UUID, LabelSummary[]>> {
-    const { manageLabelTasks, manageLabels } =
-      await import("@/contexts/labeling");
     const result = new Map<UUID, LabelSummary[]>();
 
     for (const candidateId of candidateIds) {

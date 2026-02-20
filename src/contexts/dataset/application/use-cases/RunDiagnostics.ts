@@ -1,5 +1,6 @@
 import type { Database } from "@/db";
 import { dsDiagnosticsReports } from "@/db/schema/dataset";
+import { ApiError } from "@/lib/api/errors";
 import { NotFoundError } from "@/lib/domain/DomainError";
 import { eventBus } from "@/lib/events/InProcessEventBus";
 import { generateId } from "@/shared/ids";
@@ -39,7 +40,6 @@ export class RunDiagnostics {
     }
 
     if (data.state !== "validating") {
-      const { ApiError } = await import("@/lib/api/errors");
       throw new ApiError(
         409,
         "INVALID_STATE",

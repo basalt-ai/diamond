@@ -1,3 +1,4 @@
+import { manageRubrics } from "@/contexts/scenario";
 import { NotFoundError } from "@/lib/domain/DomainError";
 import type { UUID } from "@/shared/types";
 
@@ -8,7 +9,6 @@ export class ScenarioContextAdapter implements RubricReader {
     rubricId: UUID,
     version: number
   ): Promise<{ id: UUID; version: number; criteria: unknown } | null> {
-    const { manageRubrics } = await import("@/contexts/scenario");
     try {
       const rubric = await manageRubrics.getById(rubricId);
       if (rubric.version !== version) return null;
@@ -26,7 +26,6 @@ export class ScenarioContextAdapter implements RubricReader {
   async getLatestVersion(
     rubricId: UUID
   ): Promise<{ id: UUID; version: number } | null> {
-    const { manageRubrics } = await import("@/contexts/scenario");
     try {
       const rubric = await manageRubrics.getById(rubricId);
       return { id: rubric.id, version: rubric.version };

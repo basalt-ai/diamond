@@ -13,7 +13,7 @@ export const CANDIDATE_STATES = [
 export type CandidateState = (typeof CANDIDATE_STATES)[number];
 
 const VALID_TRANSITIONS: Record<CandidateState, CandidateState[]> = {
-  raw: ["selected"],
+  raw: ["scored"],
   scored: ["selected"],
   selected: ["labeled"],
   labeled: ["validated"],

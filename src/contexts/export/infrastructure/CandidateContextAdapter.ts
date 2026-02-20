@@ -1,3 +1,4 @@
+import { manageCandidates } from "@/contexts/candidate";
 import type { UUID } from "@/shared/types";
 
 import type {
@@ -7,7 +8,6 @@ import type {
 
 export class CandidateContextAdapter implements CandidateDataReader {
   async getMany(candidateIds: UUID[]): Promise<CandidateExportView[]> {
-    const { manageCandidates } = await import("@/contexts/candidate");
     const results: CandidateExportView[] = [];
 
     for (const id of candidateIds) {

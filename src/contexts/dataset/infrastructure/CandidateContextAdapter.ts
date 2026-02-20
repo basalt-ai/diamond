@@ -1,3 +1,4 @@
+import { manageCandidates } from "@/contexts/candidate";
 import type { UUID } from "@/shared/types";
 
 import type {
@@ -7,7 +8,6 @@ import type {
 
 export class CandidateContextAdapter implements CandidateReader {
   async getMany(candidateIds: UUID[]): Promise<CandidateInfo[]> {
-    const { manageCandidates } = await import("@/contexts/candidate");
     const results: CandidateInfo[] = [];
     for (const id of candidateIds) {
       try {
@@ -26,7 +26,6 @@ export class CandidateContextAdapter implements CandidateReader {
   }
 
   async isInState(candidateId: UUID, states: string[]): Promise<boolean> {
-    const { manageCandidates } = await import("@/contexts/candidate");
     try {
       const candidate = await manageCandidates.get(candidateId);
       return states.includes(candidate.state);

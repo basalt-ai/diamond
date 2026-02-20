@@ -1,3 +1,4 @@
+import { manageCandidates } from "@/contexts/candidate";
 import { NotFoundError } from "@/lib/domain/DomainError";
 import type { UUID } from "@/shared/types";
 
@@ -9,7 +10,6 @@ export class CandidateContextAdapter implements CandidateReader {
     state: string;
     scenario_type_id: UUID;
   } | null> {
-    const { manageCandidates } = await import("@/contexts/candidate");
     try {
       const candidate = await manageCandidates.get(candidateId);
       return {

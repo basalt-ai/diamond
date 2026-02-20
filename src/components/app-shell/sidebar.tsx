@@ -7,6 +7,7 @@ import {
   NetworkIcon,
   PlayIcon,
   TagIcon,
+  UploadIcon,
   UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -76,6 +77,11 @@ const navigation: NavItem[] = [
     title: "Datasets",
     href: "/datasets",
     icon: DatabaseIcon,
+  },
+  {
+    title: "Imports",
+    href: "/bulk-sources",
+    icon: UploadIcon,
   },
   {
     title: "Exports",

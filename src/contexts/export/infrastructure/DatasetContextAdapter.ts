@@ -1,3 +1,4 @@
+import { manageDatasetVersions } from "@/contexts/dataset";
 import type { UUID } from "@/shared/types";
 
 import type {
@@ -7,7 +8,6 @@ import type {
 
 export class DatasetContextAdapter implements DatasetVersionReader {
   async getById(id: UUID): Promise<DatasetVersionExportView | null> {
-    const { manageDatasetVersions } = await import("@/contexts/dataset");
     try {
       const version = await manageDatasetVersions.get(id);
       return {
