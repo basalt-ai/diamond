@@ -104,6 +104,8 @@ export class HdbscanClusterDetector {
         reject(new Error(`HDBSCAN subprocess error: ${sanitizeError(err)}`));
       });
 
+      // Catch EPIPE if the subprocess dies before we finish writing
+      proc.stdin.on("error", () => {});
       proc.stdin.write(input);
       proc.stdin.end();
     });
