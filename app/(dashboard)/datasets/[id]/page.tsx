@@ -14,12 +14,12 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable, type ColumnDef } from "@/components/data-table/data-table";
 import { Pagination } from "@/components/data-table/pagination";
-import { Badge } from "@/components/ui/badge";
-import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { StateBadge } from "@/components/state-badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -33,7 +33,6 @@ import {
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -41,6 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useApi } from "@/hooks/use-api";
@@ -149,9 +149,7 @@ function GatePoliciesSection({ suiteId }: { suiteId: string }) {
     data: policies,
     isLoading,
     refetch,
-  } = useApi<GatePolicy[]>(
-    `/dataset-suites/${suiteId}/release-gate-policies`
-  );
+  } = useApi<GatePolicy[]>(`/dataset-suites/${suiteId}/release-gate-policies`);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<GatePolicy | null>(null);
@@ -239,10 +237,13 @@ function GatePoliciesSection({ suiteId }: { suiteId: string }) {
   function handleToggleEnabled(p: GatePolicy) {
     // Inline toggle via PUT
     const path = `/dataset-suites/${suiteId}/release-gate-policies/${p.id}`;
-    api.put(path, { enabled: !p.enabled }).then(() => {
-      toast.success(`Policy ${!p.enabled ? "enabled" : "disabled"}`);
-      refetch();
-    }).catch(() => toast.error("Failed to toggle policy"));
+    api
+      .put(path, { enabled: !p.enabled })
+      .then(() => {
+        toast.success(`Policy ${!p.enabled ? "enabled" : "disabled"}`);
+        refetch();
+      })
+      .catch(() => toast.error("Failed to toggle policy"));
   }
 
   function handleSubmit(e: React.FormEvent) {

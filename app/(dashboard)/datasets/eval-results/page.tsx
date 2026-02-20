@@ -74,8 +74,7 @@ function EvalResultsContent() {
   const queryParts: string[] = [`page=${page}`, "page_size=20"];
   if (versionFilter.trim())
     queryParts.push(`dataset_version_id=${versionFilter.trim()}`);
-  if (modelFilter.trim())
-    queryParts.push(`model_name=${modelFilter.trim()}`);
+  if (modelFilter.trim()) queryParts.push(`model_name=${modelFilter.trim()}`);
   if (modelVersionFilter.trim())
     queryParts.push(`model_version=${modelVersionFilter.trim()}`);
   const queryString = queryParts.join("&");
@@ -202,9 +201,7 @@ function EvalResultsContent() {
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">
-            Model Version
-          </label>
+          <label className="text-xs text-muted-foreground">Model Version</label>
           <Input
             value={modelVersionFilter}
             onChange={(e) => setModelVersionFilter(e.target.value)}

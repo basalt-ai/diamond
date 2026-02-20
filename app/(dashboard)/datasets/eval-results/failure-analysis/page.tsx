@@ -216,8 +216,8 @@ function FailureAnalysisContent() {
             Failure Analysis — {truncateId(versionId)}
           </h1>
           <p className="text-xs text-muted-foreground">
-            {data.eval_run_count} eval runs across{" "}
-            {data.model_versions.length} model versions
+            {data.eval_run_count} eval runs across {data.model_versions.length}{" "}
+            model versions
           </p>
         </div>
       </div>
@@ -244,10 +244,7 @@ function FailureAnalysisContent() {
           value={data.summary.regressing}
           className="border-amber-200 dark:border-amber-900"
         />
-        <KpiCard
-          label="Stable Passing"
-          value={data.summary.stable_passing}
-        />
+        <KpiCard label="Stable Passing" value={data.summary.stable_passing} />
       </div>
 
       {/* Model versions */}
@@ -281,9 +278,7 @@ function FailureAnalysisContent() {
                 <tr key={sc.scenario_type_id} className="border-b">
                   <td className="px-4 py-2">{sc.scenario_type_id}</td>
                   <td className="px-4 py-2">
-                    <ClassificationBadge
-                      classification={sc.classification}
-                    />
+                    <ClassificationBadge classification={sc.classification} />
                   </td>
                   <td className="px-4 py-2">
                     <div className="flex items-center gap-1">

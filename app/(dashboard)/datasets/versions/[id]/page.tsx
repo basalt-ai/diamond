@@ -15,11 +15,15 @@ import {
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { Bar, BarChart, XAxis, YAxis, CartesianGrid, Cell } from "recharts";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { EmptyState } from "@/components/empty-state";
 import { JsonViewer } from "@/components/json-viewer";
+import { KpiCard } from "@/components/kpi-card";
 import { StateBadge } from "@/components/state-badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,6 +32,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 import {
   Dialog,
   DialogContent,
@@ -42,19 +52,9 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
-import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/empty-state";
-import { KpiCard } from "@/components/kpi-card";
 import { useApi } from "@/hooks/use-api";
 import { useMutation } from "@/hooks/use-mutation";
 import { api, type PaginatedResponse } from "@/lib/api-client";
-import { Bar, BarChart, XAxis, YAxis, CartesianGrid, Cell } from "recharts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -301,7 +301,9 @@ function QualityTab({
   versionState: DatasetVersion["state"];
 }) {
   const { data, isLoading, status } = useApi<DiagnosticsResponse>(
-    versionState === "draft" ? null : `/dataset-versions/${versionId}/diagnostics`,
+    versionState === "draft"
+      ? null
+      : `/dataset-versions/${versionId}/diagnostics`,
     { pollInterval: 5000 }
   );
 
@@ -355,9 +357,7 @@ function QualityTab({
   const { metrics, gate_results, summary } = report;
   const kInterp = kappaInterpretation(metrics.agreement.overall_kappa);
 
-  const scenarioKappaData = Object.entries(
-    metrics.agreement.per_scenario_kappa
-  )
+  const scenarioKappaData = Object.entries(metrics.agreement.per_scenario_kappa)
     .map(([scenario, kappa]) => ({ scenario, kappa }))
     .sort((a, b) => a.kappa - b.kappa);
 
@@ -401,10 +401,7 @@ function QualityTab({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ChartContainer
-              config={kappaChartConfig}
-              className="h-64 w-full"
-            >
+            <ChartContainer config={kappaChartConfig} className="h-64 w-full">
               <BarChart
                 data={scenarioKappaData}
                 layout="vertical"
@@ -568,50 +565,45 @@ function QualityTab({
       )}
 
       {/* Shortcuts section */}
-      {metrics.shortcuts &&
-        metrics.shortcuts.shortcuts.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Shortcut Detection</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b text-left">
-                    <th className="px-4 py-2 font-medium">Feature</th>
-                    <th className="px-4 py-2 font-medium">NMI</th>
-                    <th className="px-4 py-2 font-medium">Risk Level</th>
-                    <th className="px-4 py-2 font-medium">Significant</th>
+      {metrics.shortcuts && metrics.shortcuts.shortcuts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Shortcut Detection</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b text-left">
+                  <th className="px-4 py-2 font-medium">Feature</th>
+                  <th className="px-4 py-2 font-medium">NMI</th>
+                  <th className="px-4 py-2 font-medium">Risk Level</th>
+                  <th className="px-4 py-2 font-medium">Significant</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.shortcuts.shortcuts.map((s) => (
+                  <tr key={s.feature} className="border-b">
+                    <td className="px-4 py-2">{s.feature}</td>
+                    <td className="px-4 py-2 font-mono">{s.nmi.toFixed(3)}</td>
+                    <td className="px-4 py-2">
+                      <Badge
+                        variant={
+                          s.risk_level === "high" ? "destructive" : "secondary"
+                        }
+                      >
+                        {s.risk_level}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-2">
+                      {s.significant ? "Yes" : "No"}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {metrics.shortcuts.shortcuts.map((s) => (
-                    <tr key={s.feature} className="border-b">
-                      <td className="px-4 py-2">{s.feature}</td>
-                      <td className="px-4 py-2 font-mono">
-                        {s.nmi.toFixed(3)}
-                      </td>
-                      <td className="px-4 py-2">
-                        <Badge
-                          variant={
-                            s.risk_level === "high"
-                              ? "destructive"
-                              : "secondary"
-                          }
-                        >
-                          {s.risk_level}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-2">
-                        {s.significant ? "Yes" : "No"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-        )}
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Leakage section */}
       {metrics.leakage && (
@@ -642,9 +634,7 @@ function QualityTab({
           <CardContent className="space-y-4">
             {metrics.coverage.uncovered_scenarios.length > 0 && (
               <div>
-                <p className="mb-1 text-xs font-medium">
-                  Uncovered Scenarios
-                </p>
+                <p className="mb-1 text-xs font-medium">Uncovered Scenarios</p>
                 <div className="flex flex-wrap gap-1">
                   {metrics.coverage.uncovered_scenarios.map((s) => (
                     <Badge key={s} variant="outline">
@@ -814,15 +804,10 @@ function DriftTab({ versionId }: { versionId: string }) {
       {chartData.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">
-              Distribution Comparison
-            </CardTitle>
+            <CardTitle className="text-sm">Distribution Comparison</CardTitle>
           </CardHeader>
           <CardContent>
-            <ChartContainer
-              config={driftChartConfig}
-              className="h-64 w-full"
-            >
+            <ChartContainer config={driftChartConfig} className="h-64 w-full">
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
@@ -1028,9 +1013,7 @@ function LineageTab({ versionId }: { versionId: string }) {
             <div className="flex justify-between">
               <span className="text-muted-foreground">Label Tasks</span>
               <span>
-                <Badge variant="secondary">
-                  {data.label_task_ids.length}
-                </Badge>
+                <Badge variant="secondary">{data.label_task_ids.length}</Badge>
               </span>
             </div>
           </CardContent>
@@ -1046,7 +1029,9 @@ function LineageTab({ versionId }: { versionId: string }) {
               <span>
                 Candidates: <strong>{data.candidate_count}</strong>
               </span>
-              <span>Captured: {new Date(data.captured_at).toLocaleDateString()}</span>
+              <span>
+                Captured: {new Date(data.captured_at).toLocaleDateString()}
+              </span>
             </div>
           )}
 
@@ -1146,9 +1131,11 @@ interface SliceData {
 }
 
 function SlicesTab({ versionId }: { versionId: string }) {
-  const { data: slices, isLoading, refetch } = useApi<SliceData[]>(
-    `/dataset-versions/${versionId}/slices`
-  );
+  const {
+    data: slices,
+    isLoading,
+    refetch,
+  } = useApi<SliceData[]>(`/dataset-versions/${versionId}/slices`);
   const [unlockTarget, setUnlockTarget] = useState<SliceData | null>(null);
 
   function handleToggleGolden(slice: SliceData) {
@@ -1159,10 +1146,9 @@ function SlicesTab({ versionId }: { versionId: string }) {
     }
     // Mark as golden immediately
     api
-      .patch(
-        `/dataset-versions/${versionId}/slices/${slice.id}/golden`,
-        { golden: true }
-      )
+      .patch(`/dataset-versions/${versionId}/slices/${slice.id}/golden`, {
+        golden: true,
+      })
       .then(() => {
         toast.success(`"${slice.name}" marked as golden`);
         refetch();

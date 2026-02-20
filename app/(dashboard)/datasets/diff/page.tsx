@@ -47,7 +47,9 @@ interface VersionDiffData {
 }
 
 // Backward-compatible: old format may just be a JSON blob
-type DiffResponse = VersionDiffData | { versionA: unknown; versionB: unknown; diff: unknown };
+type DiffResponse =
+  | VersionDiffData
+  | { versionA: unknown; versionB: unknown; diff: unknown };
 
 function isEnhancedDiff(d: DiffResponse): d is VersionDiffData {
   return "added_count" in d;
@@ -177,7 +179,10 @@ function CollapsibleIdList({
         <div className="border-t px-4 py-2">
           <div className="flex flex-wrap gap-1">
             {ids.slice(0, MAX_IDS_SHOWN).map((id) => (
-              <code key={id} className="rounded bg-muted px-1 py-0.5 text-[10px]">
+              <code
+                key={id}
+                className="rounded bg-muted px-1 py-0.5 text-[10px]"
+              >
                 {truncateId(id)}
               </code>
             ))}
@@ -279,9 +284,7 @@ function DiffViewer({
             <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
               ~{data.changed_count} Changed
             </Badge>
-            <Badge variant="outline">
-              ={data.unchanged_count} Unchanged
-            </Badge>
+            <Badge variant="outline">={data.unchanged_count} Unchanged</Badge>
             <Badge variant="secondary">
               Net: {data.net_delta >= 0 ? "+" : ""}
               {data.net_delta}

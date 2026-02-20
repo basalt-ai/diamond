@@ -69,10 +69,7 @@ export function useApi<T>(path: string | null, options?: UseApiOptions) {
 
     const id = setInterval(() => {
       const cur = stateRef.current;
-      if (
-        cur.status !== undefined &&
-        !shouldContinue(cur.data, cur.status)
-      ) {
+      if (cur.status !== undefined && !shouldContinue(cur.data, cur.status)) {
         clearInterval(id);
         return;
       }
