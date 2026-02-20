@@ -75,7 +75,13 @@
       "mcp__plugin_context7_context7__query-docs",
       "WebFetch(domain:orm.drizzle.team)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:platform.openai.com)"
+      "WebFetch(domain:platform.openai.com)",
+      "WebFetch(domain:homes.cs.washington.edu)",
+      "WebFetch(domain:apricot-select.readthedocs.io)",
+      "WebFetch(domain:www.researchgate.net)",
+      "WebFetch(domain:logsnag.com)",
+      "WebFetch(domain:submodlib.readthedocs.io)",
+      "WebFetch(domain:arxiv.org)"
     ]
   },
   "enableAllProjectMcpServers": true,
