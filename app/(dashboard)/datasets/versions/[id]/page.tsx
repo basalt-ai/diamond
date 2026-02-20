@@ -686,14 +686,203 @@ function QualityTab({
   );
 }
 
-function DriftTab({ _versionId }: { _versionId: string }) {
+// ---------------------------------------------------------------------------
+// Drift types
+// ---------------------------------------------------------------------------
+
+interface DriftResponse {
+  jsd: number;
+  interpretation: "negligible" | "moderate" | "significant" | "severe";
+  per_scenario_drift: Array<{
+    scenario_type_id: string;
+    production_pct: number;
+    dataset_pct: number;
+    direction: string;
+    staleness_score: number;
+  }>;
+  stale_scenarios: Array<{
+    scenario_type_id: string;
+    staleness_score: number;
+    recommendation: string;
+  }>;
+  time_window_days: number;
+  production_count: number;
+  dataset_count: number;
+}
+
+const DRIFT_DAYS_OPTIONS = [7, 14, 30, 60, 90] as const;
+
+const SEVERITY_COLORS: Record<string, string> = {
+  negligible: "text-muted-foreground",
+  moderate: "text-yellow-600",
+  significant: "text-orange-600",
+  severe: "text-red-600",
+};
+
+const driftChartConfig: ChartConfig = {
+  production_pct: { label: "Production %", color: "hsl(221, 83%, 53%)" },
+  dataset_pct: { label: "Dataset %", color: "hsl(142, 71%, 45%)" },
+};
+
+function DriftTab({ versionId }: { versionId: string }) {
+  const [days, setDays] = useState(30);
+  const { data, isLoading, error } = useApi<DriftResponse>(
+    `/dataset-versions/${versionId}/drift?days=${days}`
+  );
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <EmptyState
+        icon={BarChart3Icon}
+        title="No drift data"
+        description="This version has no candidates for drift analysis."
+      />
+    );
+  }
+
+  if (!data) return null;
+
+  const chartData = [...data.per_scenario_drift].sort(
+    (a, b) => b.staleness_score - a.staleness_score
+  );
+
   return (
-    <Card>
-      <CardContent className="py-12 text-center">
-        <BarChart3Icon className="mx-auto mb-2 size-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Coming soon</p>
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold">Drift Analysis</h2>
+        <select
+          value={days}
+          onChange={(e) => setDays(Number(e.target.value))}
+          className="rounded-md border px-2 py-1 text-xs"
+        >
+          {DRIFT_DAYS_OPTIONS.map((d) => (
+            <option key={d} value={d}>
+              Last {d} days
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* KPI row */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <KpiCard
+          label="JSD Score"
+          value={data.jsd.toFixed(4)}
+          description={
+            <Badge
+              variant="outline"
+              className={SEVERITY_COLORS[data.interpretation] ?? ""}
+            >
+              {data.interpretation}
+            </Badge>
+          }
+        />
+        <KpiCard
+          label="Production Candidates"
+          value={data.production_count.toLocaleString()}
+        />
+        <KpiCard
+          label="Dataset Candidates"
+          value={data.dataset_count.toLocaleString()}
+        />
+      </div>
+
+      {data.production_count === 0 && (
+        <Card>
+          <CardContent className="py-4">
+            <p className="text-center text-xs text-muted-foreground">
+              No production candidates in the last {days} days
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Grouped bar chart */}
+      {chartData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">
+              Distribution Comparison
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer
+              config={driftChartConfig}
+              className="h-64 w-full"
+            >
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="scenario_type_id"
+                  tick={{ fontSize: 10 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis tick={{ fontSize: 10 }} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar
+                  dataKey="production_pct"
+                  fill="var(--color-production_pct)"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  dataKey="dataset_pct"
+                  fill="var(--color-dataset_pct)"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Stale scenarios table */}
+      {data.stale_scenarios.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Stale Scenarios</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b text-left">
+                  <th className="px-4 py-2 font-medium">Scenario</th>
+                  <th className="px-4 py-2 font-medium">Staleness</th>
+                  <th className="px-4 py-2 font-medium">Recommendation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.stale_scenarios.map((s) => (
+                  <tr key={s.scenario_type_id} className="border-b">
+                    <td className="px-4 py-2">{s.scenario_type_id}</td>
+                    <td className="px-4 py-2 font-mono">
+                      {s.staleness_score.toFixed(3)}
+                    </td>
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {s.recommendation}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
 
@@ -869,7 +1058,7 @@ function VersionDetailContent() {
           <QualityTab versionId={params.id} versionState={version.state} />
         </TabsContent>
         <TabsContent value="drift">
-          <DriftTab _versionId={params.id} />
+          <DriftTab versionId={params.id} />
         </TabsContent>
         <TabsContent value="lineage">
           <LineageTab _versionId={params.id} />

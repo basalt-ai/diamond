@@ -5,7 +5,7 @@ interface KpiCardProps {
   label: string;
   value: string | number;
   icon?: React.ComponentType<{ className?: string }>;
-  description?: string;
+  description?: React.ReactNode;
   className?: string;
 }
 
