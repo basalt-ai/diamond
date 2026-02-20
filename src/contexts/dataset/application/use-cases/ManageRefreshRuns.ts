@@ -41,8 +41,7 @@ export class ManageRefreshRuns {
       input.scenarioChanges ?? []
     );
 
-    const finalStatus =
-      result === "created" ? "pending_diagnostics" : "failed";
+    const finalStatus = result === "created" ? "pending_diagnostics" : "failed";
     return this.repo.updateStatus(run.id, finalStatus, {
       completedAt: result !== "created" ? new Date() : undefined,
     });

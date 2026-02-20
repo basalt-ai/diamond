@@ -102,7 +102,9 @@
       "WebFetch(domain:real-statistics.com)",
       "Bash(wc:*)",
       "Bash(kill:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(DATABASE_URL=\"postgres://localhost/diamond\" pnpm db:push:*)",
+      "Bash(DATABASE_URL=\"postgres://localhost/diamond\" pnpm db:generate:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

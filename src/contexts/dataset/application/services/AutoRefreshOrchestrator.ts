@@ -66,7 +66,8 @@ export class AutoRefreshOrchestrator {
         ? ("all" as const)
         : (policy.scenarioTypeIds as UUID[]);
 
-    const eligible = await this.candidateReader.findEligibleForDataset(scenarioScope);
+    const eligible =
+      await this.candidateReader.findEligibleForDataset(scenarioScope);
 
     // Check minimum candidate count
     if (eligible.length < policy.minCandidateCount) return "not_ready";
@@ -99,9 +100,8 @@ export class AutoRefreshOrchestrator {
 
     // Build lineage
     const candidateIds = eligible.map((c) => c.id);
-    const labelsMap = await this.labelReader.getLabelsForCandidates(
-      candidateIds
-    );
+    const labelsMap =
+      await this.labelReader.getLabelsForCandidates(candidateIds);
 
     const lineageCandidates = eligible.map((c) => {
       const labels = labelsMap.get(c.id) ?? [];

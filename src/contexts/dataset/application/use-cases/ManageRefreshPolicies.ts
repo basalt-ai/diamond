@@ -12,7 +12,10 @@ const VALID_EXPORT_FORMATS = ["jsonl", "cobalt", "limestone"] as const;
 export class ManageRefreshPolicies {
   constructor(private readonly suiteRepo: DatasetSuiteRepository) {}
 
-  async set(suiteId: UUID, input: RefreshPolicyData): Promise<DatasetSuiteData> {
+  async set(
+    suiteId: UUID,
+    input: RefreshPolicyData
+  ): Promise<DatasetSuiteData> {
     const suite = await this.suiteRepo.findById(suiteId);
     if (!suite) throw new NotFoundError("DatasetSuite", suiteId);
 
@@ -54,7 +57,10 @@ export class ManageRefreshPolicies {
       );
     }
 
-    if (input.scenarioTypeScope === "explicit" && input.scenarioTypeIds.length === 0) {
+    if (
+      input.scenarioTypeScope === "explicit" &&
+      input.scenarioTypeIds.length === 0
+    ) {
       throw new Error(
         "scenarioTypeIds must not be empty when scenarioTypeScope is 'explicit'"
       );
@@ -73,7 +79,11 @@ export class ManageRefreshPolicies {
     }
 
     for (const fmt of input.exportFormats) {
-      if (!VALID_EXPORT_FORMATS.includes(fmt as (typeof VALID_EXPORT_FORMATS)[number])) {
+      if (
+        !VALID_EXPORT_FORMATS.includes(
+          fmt as (typeof VALID_EXPORT_FORMATS)[number]
+        )
+      ) {
         throw new Error(
           `Invalid export format '${fmt}'. Must be one of: ${VALID_EXPORT_FORMATS.join(", ")}`
         );

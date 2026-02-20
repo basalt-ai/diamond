@@ -31,7 +31,9 @@ export async function onDatasetVersionReleased(
 async function getExportFormats(suiteId: string): Promise<string[]> {
   try {
     const { manageDatasetSuites } = await import("@/contexts/dataset");
-    const suite = await manageDatasetSuites.get(suiteId as import("@/shared/types").UUID);
+    const suite = await manageDatasetSuites.get(
+      suiteId as import("@/shared/types").UUID
+    );
     const policyFormats = suite.refreshPolicy?.exportFormats;
     if (policyFormats && policyFormats.length > 0) return policyFormats;
   } catch {
