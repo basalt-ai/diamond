@@ -9,18 +9,14 @@ import {
   type DatasetVersionData,
 } from "../../domain/entities/DatasetVersion";
 import type { AgreementComputer } from "../../domain/services/AgreementComputer";
+import type { GateEvaluator } from "../../domain/services/GateEvaluator";
 import type { RedundancyComputer } from "../../domain/services/RedundancyComputer";
 import type { DiagnosticsMetrics } from "../../domain/value-objects/DiagnosticsReport";
-import type { GateResult } from "../../domain/value-objects/GateResult";
 import type { CandidateReader } from "../ports/CandidateReader";
 import type { DatasetVersionRepository } from "../ports/DatasetVersionRepository";
 import type { DiagnosticsReportRepository } from "../ports/DiagnosticsReportRepository";
 import type { LabelReader } from "../ports/LabelReader";
-
-const DEFAULT_GATES = {
-  min_agreement: 0.6,
-  max_redundancy: 0.1,
-};
+import type { ReleaseGatePolicyRepository } from "../ports/ReleaseGatePolicyRepository";
 
 export class RunDiagnostics {
   constructor(
@@ -29,7 +25,9 @@ export class RunDiagnostics {
     private readonly labelReader: LabelReader,
     private readonly diagnosticsRepo: DiagnosticsReportRepository,
     private readonly redundancyComputer: RedundancyComputer,
-    private readonly agreementComputer: AgreementComputer
+    private readonly agreementComputer: AgreementComputer,
+    private readonly gatePolicyRepo: ReleaseGatePolicyRepository,
+    private readonly gateEvaluator: GateEvaluator
   ) {}
 
   async execute(versionId: UUID): Promise<DatasetVersionData> {
@@ -72,16 +70,11 @@ export class RunDiagnostics {
     };
 
     // Evaluate gates
-    const gateConfig = {
-      ...DEFAULT_GATES,
-      ...(typeof data.selectionPolicy === "object" &&
-      data.selectionPolicy !== null
-        ? (data.selectionPolicy as Record<string, unknown>)
-        : {}),
-    };
-
-    const gateResults = this.evaluateGates(metrics, gateConfig);
-    const allPassed = gateResults.every((g) => g.passed);
+    const policies = await this.gatePolicyRepo.findBySuiteId(data.suiteId);
+    const gateResults = this.gateEvaluator.evaluate(metrics, policies);
+    const allPassed = gateResults
+      .filter((g) => g.blocking)
+      .every((g) => g.passed);
 
     // Store diagnostics report
     const diagnosticsId = generateId();
@@ -134,40 +127,5 @@ export class RunDiagnostics {
     await eventBus.publishAll(aggregate.domainEvents);
 
     return updated;
-  }
-
-  private evaluateGates(
-    metrics: DiagnosticsMetrics,
-    config: Record<string, unknown>
-  ): GateResult[] {
-    const results: GateResult[] = [];
-
-    const minAgreement = Number(
-      config.min_agreement ?? DEFAULT_GATES.min_agreement
-    );
-    results.push({
-      gate: "min_agreement",
-      threshold: minAgreement,
-      actual: metrics.agreement.overall_kappa,
-      passed: metrics.agreement.overall_kappa >= minAgreement,
-      blocking: true,
-      scope: "overall",
-      scopeTarget: null,
-    });
-
-    const maxRedundancy = Number(
-      config.max_redundancy ?? DEFAULT_GATES.max_redundancy
-    );
-    results.push({
-      gate: "max_redundancy",
-      threshold: maxRedundancy,
-      actual: metrics.redundancy.redundancy_index,
-      passed: metrics.redundancy.redundancy_index <= maxRedundancy,
-      blocking: true,
-      scope: "overall",
-      scopeTarget: null,
-    });
-
-    return results;
   }
 }
