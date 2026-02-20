@@ -100,11 +100,11 @@
       "WebFetch(domain:en.wikipedia.org)",
       "WebFetch(domain:lilianweng.github.io)",
       "WebFetch(domain:real-statistics.com)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(kill:*)",
+      "Bash(pkill:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "supabase"
-  ]
+  "enabledMcpjsonServers": ["supabase"]
 }

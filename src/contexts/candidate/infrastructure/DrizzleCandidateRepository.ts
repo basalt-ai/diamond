@@ -1,4 +1,4 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 
 import type { Database } from "@/db";
 import { cdCandidates } from "@/db/schema/candidate";
@@ -43,6 +43,15 @@ export class DrizzleCandidateRepository implements CandidateRepository {
       .from(cdCandidates)
       .where(eq(cdCandidates.id, id));
     return (row as CandidateData) ?? null;
+  }
+
+  async findByIds(ids: UUID[]): Promise<CandidateData[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.db
+      .select()
+      .from(cdCandidates)
+      .where(inArray(cdCandidates.id, ids));
+    return rows as CandidateData[];
   }
 
   async list(

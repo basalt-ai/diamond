@@ -25,6 +25,8 @@ export interface CandidateRepository {
 
   findById(id: UUID): Promise<CandidateData | null>;
 
+  findByIds(ids: UUID[]): Promise<CandidateData[]>;
+
   list(
     filter: ListCandidatesFilter,
     page: number,

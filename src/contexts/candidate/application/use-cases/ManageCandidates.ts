@@ -71,6 +71,10 @@ export class ManageCandidates {
     return candidate;
   }
 
+  async getMany(ids: UUID[]): Promise<CandidateData[]> {
+    return this.repo.findByIds(ids);
+  }
+
   async list(
     filter: ListCandidatesFilter,
     page: number,

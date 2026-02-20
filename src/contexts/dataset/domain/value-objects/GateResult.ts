@@ -3,4 +3,7 @@ export interface GateResult {
   threshold: number;
   actual: number;
   passed: boolean;
+  blocking: boolean;
+  scope: string;
+  scopeTarget: string | null;
 }

@@ -8,21 +8,14 @@ import type {
 
 export class CandidateContextAdapter implements CandidateReader {
   async getMany(candidateIds: UUID[]): Promise<CandidateInfo[]> {
-    const results: CandidateInfo[] = [];
-    for (const id of candidateIds) {
-      try {
-        const candidate = await manageCandidates.get(id);
-        results.push({
-          id: candidate.id,
-          episodeId: candidate.episodeId,
-          scenarioTypeId: candidate.scenarioTypeId,
-          state: candidate.state,
-        });
-      } catch {
-        // Skip not-found candidates
-      }
-    }
-    return results;
+    if (candidateIds.length === 0) return [];
+    const candidates = await manageCandidates.getMany(candidateIds);
+    return candidates.map((c) => ({
+      id: c.id,
+      episodeId: c.episodeId,
+      scenarioTypeId: c.scenarioTypeId,
+      state: c.state,
+    }));
   }
 
   async isInState(candidateId: UUID, states: string[]): Promise<boolean> {

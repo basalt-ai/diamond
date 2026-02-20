@@ -67,3 +67,64 @@ export type ReleaseGateBlockedEvent = TypedDomainEvent<
   "release_gate.blocked",
   ReleaseGateBlockedPayload
 >;
+
+// ── Phase 3 Events ──────────────────────────────────────────────────
+
+export type EvalRunIngestedPayload = {
+  eval_run_id: string;
+  dataset_version_id: string;
+  model_name: string;
+  model_version: string;
+  result_count: number;
+};
+
+export type EvalRunIngestedEvent = TypedDomainEvent<
+  "eval_run.ingested",
+  EvalRunIngestedPayload
+>;
+
+export type GoldenSliceLockedPayload = {
+  slice_id: string;
+  dataset_version_id: string;
+  slice_name: string;
+};
+
+export type GoldenSliceLockedEvent = TypedDomainEvent<
+  "golden_slice.locked",
+  GoldenSliceLockedPayload
+>;
+
+export type DriftDetectedPayload = {
+  dataset_version_id: string;
+  jsd: number;
+  threshold: number;
+  stale_scenarios: string[];
+};
+
+export type DriftDetectedEvent = TypedDomainEvent<
+  "drift.detected",
+  DriftDetectedPayload
+>;
+
+export type ReleaseGatePolicyCreatedPayload = {
+  policy_id: string;
+  suite_id: string;
+  gate_name: string;
+  metric: string;
+};
+
+export type ReleaseGatePolicyCreatedEvent = TypedDomainEvent<
+  "release_gate_policy.created",
+  ReleaseGatePolicyCreatedPayload
+>;
+
+export type ReleaseGatePolicyDeletedPayload = {
+  policy_id: string;
+  suite_id: string;
+  gate_name: string;
+};
+
+export type ReleaseGatePolicyDeletedEvent = TypedDomainEvent<
+  "release_gate_policy.deleted",
+  ReleaseGatePolicyDeletedPayload
+>;

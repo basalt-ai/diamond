@@ -38,13 +38,13 @@ issues: 22
 
 ### Critical Prerequisites (Before Wave 1)
 
-| Task | Why |
-|---|---|
-| Replace O(n^2) `computeRedundancy` loop with SQL GROUP BY | Current code does 50M iterations at 10K candidates — breaks 30s SLO alone |
-| Add `ds_dataset_version_candidates` join table | JSONB array prevents indexed set ops for leakage, diff, eval validation |
-| Extract `MetricComputer` strategy objects from `RunDiagnostics` | Use case at 257 lines would grow to 800+ without decomposition |
-| Fix N+1 in `CandidateContextAdapter.getMany()` | Current for-loop calls `manageCandidates.get(id)` per candidate — 10K sequential calls |
-| Add FK constraints to existing `ds_` tables | Missing `.references()` on all existing `*_id` columns |
+| Task                                                            | Why                                                                                    |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Replace O(n^2) `computeRedundancy` loop with SQL GROUP BY       | Current code does 50M iterations at 10K candidates — breaks 30s SLO alone              |
+| Add `ds_dataset_version_candidates` join table                  | JSONB array prevents indexed set ops for leakage, diff, eval validation                |
+| Extract `MetricComputer` strategy objects from `RunDiagnostics` | Use case at 257 lines would grow to 800+ without decomposition                         |
+| Fix N+1 in `CandidateContextAdapter.getMany()`                  | Current for-loop calls `manageCandidates.get(id)` per candidate — 10K sequential calls |
+| Add FK constraints to existing `ds_` tables                     | Missing `.references()` on all existing `*_id` columns                                 |
 
 ---
 
@@ -70,19 +70,19 @@ Phase 1 established basic diagnostics (redundancy via Jaccard, agreement via lab
 
 The SpecFlow analysis surfaced several ambiguities in the PRD. The following decisions are made for this plan (flagged for review):
 
-| Decision | Rationale |
-|---|---|
-| **Eval results live in the Dataset context** (not Export) | API paths, data model, and consumption patterns all point to Dataset. EvalRun's lifecycle questions are Dataset questions ("did this version produce good signal?"). Placing it in Export would create dependency inversion. Provisionally in Dataset — re-evaluate extraction to separate `Evaluation` context after Phase 3 if `AnalyzeFailures` needs circular reads with diagnostics. |
-| **Shortcut detection = mutual information between Phase 2 features and majority label** | Feature-label correlation via MI, flagging features with NMI > 0.1 (medium) or > 0.3 (high). Significance via G-test with Bonferroni correction. Requires Phase 2 feature data. |
-| **Leakage check = candidate overlap by episode_id across released versions in same suite** | Near-duplicate detection across dataset boundaries. Extended in future to embedding-space similarity. |
-| **KL/JS divergence computed on scenario type frequency distributions** | Production candidate scenario proportions vs dataset version scenario proportions. Works without embeddings at Phase 3 launch; embedding-space density deferred. |
-| **"Changed" candidate in enhanced diff = same candidate ID with different finalized label content hash** | Label hash stored at finalization time on `lb_label_tasks` for efficient SQL comparison. |
-| **Per-slice gate failure is configurable: blocking or warning** | Each gate policy has a `blocking` boolean. Non-blocking failures appear in diagnostics but don't prevent release. |
-| **Golden slices auto-carry forward** | When creating a new version, golden slices from the latest released version in the same suite are automatically included. Stale candidates tracked in `stale_candidate_ids` JSONB array. |
-| **`GET /diagnostics` returns cached report; computation runs as background job** | State transition to `validating` enqueues diagnostics job. API returns `{ status: "computing" }` until report is ready, then full report. |
-| **Release gate policies are scoped to a suite** | Each policy belongs to a suite. Nested under `/dataset-suites/[id]/release-gate-policies`. |
-| **Drift time window defaults to 30 days**, configurable via query param | `?days=N` on the drift API endpoint. |
-| **"Production candidate" for drift = candidates in `raw` or later state, filtered by `created_at`** | Uses creation timestamp, not state-specific transition dates. |
+| Decision                                                                                                 | Rationale                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Eval results live in the Dataset context** (not Export)                                                | API paths, data model, and consumption patterns all point to Dataset. EvalRun's lifecycle questions are Dataset questions ("did this version produce good signal?"). Placing it in Export would create dependency inversion. Provisionally in Dataset — re-evaluate extraction to separate `Evaluation` context after Phase 3 if `AnalyzeFailures` needs circular reads with diagnostics. |
+| **Shortcut detection = mutual information between Phase 2 features and majority label**                  | Feature-label correlation via MI, flagging features with NMI > 0.1 (medium) or > 0.3 (high). Significance via G-test with Bonferroni correction. Requires Phase 2 feature data.                                                                                                                                                                                                           |
+| **Leakage check = candidate overlap by episode_id across released versions in same suite**               | Near-duplicate detection across dataset boundaries. Extended in future to embedding-space similarity.                                                                                                                                                                                                                                                                                     |
+| **KL/JS divergence computed on scenario type frequency distributions**                                   | Production candidate scenario proportions vs dataset version scenario proportions. Works without embeddings at Phase 3 launch; embedding-space density deferred.                                                                                                                                                                                                                          |
+| **"Changed" candidate in enhanced diff = same candidate ID with different finalized label content hash** | Label hash stored at finalization time on `lb_label_tasks` for efficient SQL comparison.                                                                                                                                                                                                                                                                                                  |
+| **Per-slice gate failure is configurable: blocking or warning**                                          | Each gate policy has a `blocking` boolean. Non-blocking failures appear in diagnostics but don't prevent release.                                                                                                                                                                                                                                                                         |
+| **Golden slices auto-carry forward**                                                                     | When creating a new version, golden slices from the latest released version in the same suite are automatically included. Stale candidates tracked in `stale_candidate_ids` JSONB array.                                                                                                                                                                                                  |
+| **`GET /diagnostics` returns cached report; computation runs as background job**                         | State transition to `validating` enqueues diagnostics job. API returns `{ status: "computing" }` until report is ready, then full report.                                                                                                                                                                                                                                                 |
+| **Release gate policies are scoped to a suite**                                                          | Each policy belongs to a suite. Nested under `/dataset-suites/[id]/release-gate-policies`.                                                                                                                                                                                                                                                                                                |
+| **Drift time window defaults to 30 days**, configurable via query param                                  | `?days=N` on the drift API endpoint.                                                                                                                                                                                                                                                                                                                                                      |
+| **"Production candidate" for drift = candidates in `raw` or later state, filtered by `created_at`**      | Uses creation timestamp, not state-specific transition dates.                                                                                                                                                                                                                                                                                                                             |
 
 ## Technical Approach
 
@@ -108,6 +108,7 @@ src/contexts/dataset/domain/services/
 `RunDiagnostics.execute()` becomes a thin orchestrator: fetch data, call each service, collect results into `DiagnosticsReport`, persist, evaluate gates, transition state, emit events.
 
 **Dataset context extensions:**
+
 - New domain entity: `ReleaseGatePolicy`
 - New aggregate root: `EvalRun` (with `EvalResultData` as value object, not entity)
 - Extended value objects: `DiagnosticsReport`, `VersionDiff`
@@ -117,6 +118,7 @@ src/contexts/dataset/domain/services/
 - New infrastructure: `DrizzleReleaseGatePolicyRepository`, `DrizzleEvalRunRepository`, `CandidateDistributionAdapter` (separate from existing `CandidateContextAdapter`)
 
 **New database tables:**
+
 - `ds_dataset_version_candidates` — join table replacing JSONB `candidate_ids` for set operations
 - `ds_release_gate_policies` — configurable gate definitions
 - `ds_eval_runs` — eval run metadata (model version, CI info)
@@ -124,17 +126,20 @@ src/contexts/dataset/domain/services/
 - `ds_diagnostics_anomalies` — per-candidate anomaly records (high entropy, shortcuts, leakage)
 
 **Schema changes to existing tables:**
+
 - `ds_slices`: add `is_golden` boolean + `locked_at` timestamp + `stale_candidate_ids` JSONB
 - `ds_diagnostics_reports`: consolidate to single `metrics` JSONB column (replaces 2 existing + avoids 7 new columns)
 - `lb_label_tasks`: add `label_hash` VARCHAR(32) — content hash stored at finalization
 
 **New domain events:**
+
 - `eval_run.ingested` — when CI posts results (singular noun per convention)
 - `golden_slice.locked` — when a slice is marked golden
 - `drift.detected` — when drift exceeds threshold (enables notification handlers)
 - `release_gate_policy.created` / `release_gate_policy.deleted` — for audit trail
 
 **New domain errors** (`src/contexts/dataset/domain/errors.ts`):
+
 - `ReleaseGatePolicyNotFoundError extends NotFoundError`
 - `DuplicateGatePolicyError extends DuplicateError`
 - `EvalRunNotFoundError extends NotFoundError`
@@ -145,6 +150,7 @@ src/contexts/dataset/domain/services/
 - `EmptyDatasetVersionError extends DomainError`
 
 **New API routes (9 endpoints):**
+
 - `POST/GET /api/v1/dataset-suites/[id]/release-gate-policies` — gate policy CRUD (nested under suite)
 - `GET/PUT/DELETE /api/v1/dataset-suites/[id]/release-gate-policies/[policyId]` — single policy operations
 - `GET /api/v1/dataset-versions/[id]/diagnostics` — full diagnostics report
@@ -290,7 +296,7 @@ Create `src/contexts/dataset/domain/services/` directory. Move existing `compute
 
 Replace the per-ID for-loop with a batch query. The adapter should use a direct DB query for `getMany(ids)` rather than calling `manageCandidates.get(id)` in a loop.
 
-### P-5: Add FK constraints to existing ds_ tables
+### P-5: Add FK constraints to existing ds\_ tables
 
 Add `.references()` to `ds_slices.datasetVersionId`, `ds_diagnostics_reports.datasetVersionId`, `ds_dataset_versions.suiteId`. Use `onDelete: "restrict"` for parent references.
 
@@ -334,7 +340,9 @@ export const dsReleaseGatePolicies = pgTable(
   "ds_release_gate_policies",
   {
     id: uuid("id").primaryKey(),
-    suiteId: uuid("suite_id").notNull().references(() => dsDatasetSuites.id, { onDelete: "restrict" }),
+    suiteId: uuid("suite_id")
+      .notNull()
+      .references(() => dsDatasetSuites.id, { onDelete: "restrict" }),
     gateName: varchar("gate_name", { length: 100 }).notNull(),
     metric: varchar("metric", { length: 50 }).notNull(),
     threshold: doublePrecision("threshold").notNull(),
@@ -343,23 +351,35 @@ export const dsReleaseGatePolicies = pgTable(
     sliceFilter: jsonb("slice_filter"),
     blocking: boolean("blocking").notNull().default(true),
     enabled: boolean("enabled").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [
-    unique("ds_release_gate_policies_suite_name_uniq").on(t.suiteId, t.gateName),
-    index("ds_release_gate_policies_suite_enabled_idx").on(t.suiteId, t.enabled),
-  ],
+    unique("ds_release_gate_policies_suite_name_uniq").on(
+      t.suiteId,
+      t.gateName
+    ),
+    index("ds_release_gate_policies_suite_enabled_idx").on(
+      t.suiteId,
+      t.enabled
+    ),
+  ]
 );
 ```
 
 **Slice filter validation (Zod schema at API boundary):**
 
 ```typescript
-const SliceFilterSchema = z.object({
-  sliceNames: z.array(z.string()).optional(),
-  scenarioTypeIds: z.array(z.string().uuid()).optional(),
-}).strict();
+const SliceFilterSchema = z
+  .object({
+    sliceNames: z.array(z.string()).optional(),
+    scenarioTypeIds: z.array(z.string().uuid()).optional(),
+  })
+  .strict();
 ```
 
 **CHECK constraints** (in migration SQL):
@@ -372,6 +392,7 @@ ALTER TABLE ds_release_gate_policies
 ```
 
 **Acceptance criteria:**
+
 - [ ] CRUD API for release gate policies nested under `/dataset-suites/[id]/release-gate-policies`
 - [ ] Validation: metric, comparison, scope via CHECK constraints + Zod
 - [ ] Unique constraint on `(suite_id, gate_name)`
@@ -397,6 +418,7 @@ src/contexts/dataset/application/ports/LabelReader.ts            # Extend with e
 **Statistical implementation details:**
 
 Cohen's kappa (2 raters):
+
 ```
 κ = (p_o - p_e) / (1 - p_e)
 p_o = diagonal sum / N (observed agreement)
@@ -404,6 +426,7 @@ p_e = Σ(row_marginal * col_marginal) / N² (expected by chance)
 ```
 
 Fleiss' kappa (3+ raters, supports variable n_i per item):
+
 ```
 P_i = (1/(n_i*(n_i-1))) * Σ_j [n_ij * (n_ij - 1)]
 P_bar = (1/N) * Σ P_i
@@ -412,6 +435,7 @@ P_e = Σ p_j²
 ```
 
 **Edge cases (from institutional learnings + research):**
+
 - All same category: `p_e → 1`, denominator → 0. Guard with epsilon check, return kappa `1.0` if perfect agreement, `0` otherwise, with warning.
 - 0 labels: return kappa `1.0` (not NaN) — per labeling context convention.
 - Single annotator: return `null` (cannot compute pairwise agreement).
@@ -421,14 +445,14 @@ P_e = Σ p_j²
 
 **Interpretation thresholds (Landis & Koch):**
 
-| kappa | Interpretation | Flag? |
-|---|---|---|
-| < 0 | Below chance | Critical |
-| 0.01-0.20 | Slight | High |
-| 0.21-0.40 | Fair | Medium |
-| 0.41-0.60 | Moderate | Low |
-| 0.61-0.80 | Substantial | OK |
-| 0.81-1.00 | Almost perfect | OK |
+| kappa     | Interpretation | Flag?    |
+| --------- | -------------- | -------- |
+| < 0       | Below chance   | Critical |
+| 0.01-0.20 | Slight         | High     |
+| 0.21-0.40 | Fair           | Medium   |
+| 0.41-0.60 | Moderate       | Low      |
+| 0.61-0.80 | Substantial    | OK       |
+| 0.81-1.00 | Almost perfect | OK       |
 
 **Extended `AgreementReport` shape:**
 
@@ -463,6 +487,7 @@ interface LabelSummaryEnriched {
 ```
 
 **Acceptance criteria:**
+
 - [ ] Cohen's kappa for 2-annotator tasks, Fleiss' kappa for 3+
 - [ ] Breakdown by scenario type, failure mode, risk tier, and named slices
 - [ ] Flag slices with agreement >1 std dev below mean
@@ -475,20 +500,24 @@ interface LabelSummaryEnriched {
 **Context:** Dataset (domain service: `EntropyComputer`)
 
 **Formula:**
+
 ```
 H(X) = -Σ p_i * log₂(p_i)     [raw, in bits]
 H_norm = H(X) / log₂(k)        [normalized, [0,1]]
 ```
+
 Convention: `0 * log(0) = 0`.
 
 **Always use normalized entropy** for cross-dataset comparisons.
 
 **Flag thresholds:**
+
 - `H_norm < 0.3` → severe class imbalance (high severity)
 - `H_norm < 0.5` → class imbalance (medium severity)
 - Per-candidate `H_norm > 0.8` → high disagreement among annotators
 
 **Acceptance criteria:**
+
 - [ ] Shannon entropy computed per scenario and per slice
 - [ ] High-entropy candidates flagged (normalized entropy > 0.8)
 - [ ] **Cap `highEntropyCandidates` at 200** (store top N by entropy, not all)
@@ -513,6 +542,7 @@ G = 2 * N * I(X;Y)                   [G-test statistic, ~χ²((|X|-1)(|Y|-1))]
 - Small-sample bias: apply **Miller-Madow correction** when N < 50: `I_corrected = I - (|X||Y| - 1) / (2N)`
 
 **Flag thresholds:**
+
 - `NMI > 0.1` → medium risk (potential shortcut)
 - `NMI > 0.3` → high risk (strong shortcut indicator)
 
@@ -521,7 +551,9 @@ G = 2 * N * I(X;Y)                   [G-test statistic, ~χ²((|X|-1)(|Y|-1))]
 ```typescript
 // src/contexts/dataset/application/ports/CandidateFeatureReader.ts
 interface CandidateFeatureReader {
-  getFeaturesForCandidates(candidateIds: UUID[]): Promise<Map<UUID, CandidateFeatures>>;
+  getFeaturesForCandidates(
+    candidateIds: UUID[]
+  ): Promise<Map<UUID, CandidateFeatures>>;
 }
 
 interface CandidateFeatures {
@@ -535,6 +567,7 @@ interface CandidateFeatures {
 ```
 
 **Acceptance criteria:**
+
 - [ ] MI computed between 6 candidate features and majority label
 - [ ] Significance via G-test with Bonferroni correction
 - [ ] Risk level classification (low/medium/high based on NMI thresholds)
@@ -560,6 +593,7 @@ HAVING COUNT(DISTINCT dvc.dataset_version_id) > 1;
 ```
 
 **Acceptance criteria:**
+
 - [ ] Detect episode_id overlap across released versions in same suite
 - [ ] Severity: `critical` (exact candidate duplicate), `warning` (same episode, different candidate)
 - [ ] **Cap duplicate entries at 1000** (store most severe first)
@@ -576,6 +610,7 @@ app/api/v1/dataset-versions/[id]/diagnostics/route.ts   # Enhanced GET endpoint
 ```
 
 **Behavior — background job pattern:**
+
 - State transition to `validating` enqueues diagnostics computation job
 - `GET /diagnostics` returns `{ status: "computing" }` while job is running
 - Once complete: returns full diagnostics report from cache
@@ -584,11 +619,13 @@ app/api/v1/dataset-versions/[id]/diagnostics/route.ts   # Enhanced GET endpoint
 - Returns the full diagnostics report matching PRD section 8.2 schema
 
 **Response status codes:**
+
 - `200` — report ready
 - `202` — computation in progress (`{ status: "computing" }`)
 - `404` — version not found or no diagnostics report exists
 
 **Acceptance criteria:**
+
 - [ ] Returns all metric categories from single `metrics` JSONB column
 - [ ] Per-candidate anomalies fetched from `ds_diagnostics_anomalies` table on demand
 - [ ] Supports slice filtering via query param
@@ -616,6 +653,7 @@ where M = (P + Q) / 2
 ```
 
 Key properties:
+
 - Symmetric: `JSD(P||Q) = JSD(Q||P)`
 - Bounded: `JSD ∈ [0, ln(2)]` in nats, `[0, 1]` in bits
 - **No smoothing required** — the mixture M automatically handles zeros
@@ -623,12 +661,12 @@ Key properties:
 
 **Flag thresholds (in bits):**
 
-| JSD | Interpretation |
-|---|---|
-| 0.0-0.05 | Negligible difference |
-| 0.05-0.1 | Moderate shift — monitor |
-| 0.1-0.2 | Significant — investigate |
-| > 0.2 | Severe divergence — action needed |
+| JSD      | Interpretation                    |
+| -------- | --------------------------------- |
+| 0.0-0.05 | Negligible difference             |
+| 0.05-0.1 | Moderate shift — monitor          |
+| 0.1-0.2  | Significant — investigate         |
+| > 0.2    | Severe divergence — action needed |
 
 **New port (separate adapter, not extending CandidateContextAdapter):**
 
@@ -650,6 +688,7 @@ ON cd_candidates(scenario_type_id, created_at DESC);
 ```
 
 **Acceptance criteria:**
+
 - [ ] JS divergence computed on scenario type distributions (O(k) where k = scenario count)
 - [ ] Per-scenario drift with direction (over/underrepresented)
 - [ ] Emit `drift.detected` event when JSD exceeds configurable threshold
@@ -663,10 +702,12 @@ Implemented within `ComputeDrift` use case.
 **Staleness score:** `abs(production_pct - dataset_pct) / max(production_pct, dataset_pct)`
 
 A scenario is stale if:
+
 - Staleness score > 0.5 (configurable), OR
 - No new candidates ingested for the scenario in 30 days
 
 **Acceptance criteria:**
+
 - [ ] Staleness score per scenario
 - [ ] Differentiate "growing" (underrepresented in dataset) vs "shrinking" (overrepresented)
 - [ ] Recommended actions generated: "Add N more candidates for scenario X" type suggestions
@@ -678,6 +719,7 @@ A scenario is stale if:
 **Note:** Drift is computed on-demand (not cached in diagnostics report). The DriftReport is separate from the diagnostics report because it has different lifecycle characteristics (time-windowed, always fresh vs. snapshot at validation time).
 
 **Acceptance criteria:**
+
 - [ ] Returns drift report with JSD and per-scenario drift
 - [ ] 404 if version not found, 400 if version has no candidates
 - [ ] Drift results NOT stored in `ds_diagnostics_reports` (computed on demand)
@@ -745,6 +787,7 @@ interface VersionDiffData {
 ```
 
 **Acceptance criteria:**
+
 - [ ] Detect changed candidates via label_hash comparison (single SQL query)
 - [ ] Scenario breakdown, coverage delta, agreement delta
 - [ ] Backward compatible — existing diff endpoint returns enhanced data
@@ -756,6 +799,7 @@ interface VersionDiffData {
 Returns existing `lineage` JSONB enriched with scenario type names and scoring run info. Support `?candidate_id=<id>` for single-candidate drill-down. Paginate candidate list with `?page=1&page_size=100`.
 
 **Acceptance criteria:**
+
 - [ ] Full lineage graph for a dataset version
 - [ ] Candidate-level drill-down via query param
 - [ ] Enriched with scenario type names (from `ScenarioReader` port)
@@ -789,13 +833,14 @@ interface GateResult {
   threshold: number;
   actual: number;
   passed: boolean;
-  blocking: boolean;        // NEW
-  scope: string;            // NEW: overall, per_scenario, per_slice
+  blocking: boolean; // NEW
+  scope: string; // NEW: overall, per_scenario, per_slice
   scopeTarget: string | null; // NEW: scenario_id or slice_name
 }
 ```
 
 **Acceptance criteria:**
+
 - [ ] Gate evaluation reads policies from database (not hardcoded)
 - [ ] Per-scenario and per-slice evaluation with scope targets
 - [ ] Blocking vs non-blocking distinction
@@ -805,6 +850,7 @@ interface GateResult {
 ### GET-124: Coverage Minimum Enforcement
 
 **Acceptance criteria:**
+
 - [ ] Coverage = % of scenario types with at least 1 candidate
 - [ ] Per-risk-tier coverage (safety scenarios require higher coverage)
 - [ ] Configurable minimum examples per scenario type
@@ -844,11 +890,13 @@ FOR EACH ROW EXECUTE FUNCTION prevent_golden_slice_mutation();
 ```
 
 **Auto-clone behavior:**
+
 - When creating a new version in a suite, clone golden slices from latest released version
 - Track stale candidates in `stale_candidate_ids` JSONB array (candidates from golden slice not in new version's pool)
 - Diagnostics must exclude stale candidates from coverage/agreement calculations
 
 **Acceptance criteria:**
+
 - [ ] Mark slices as golden via `PATCH .../state` with `{ golden: true }`
 - [ ] Database-level trigger prevents modification of golden slice candidate_ids/filter
 - [ ] Application-level `GoldenSliceImmutableError` thrown before trigger fires
@@ -887,24 +935,32 @@ app/api/v1/eval-results/route.ts                                 # POST + GET
 
 ```typescript
 const JudgeOutputSchema = z.record(z.string(), z.unknown()).optional();
-const EvalMetadataSchema = z.object({
-  commitSha: z.string().optional(),
-  ciUrl: z.string().url().optional(),
-  pipelineId: z.string().optional(),
-}).strict().optional();
+const EvalMetadataSchema = z
+  .object({
+    commitSha: z.string().optional(),
+    ciUrl: z.string().url().optional(),
+    pipelineId: z.string().optional(),
+  })
+  .strict()
+  .optional();
 
 const IngestEvalResultsSchema = z.object({
   datasetVersionId: z.string().uuid(),
   modelName: z.string().min(1).max(100),
   modelVersion: z.string().min(1).max(100),
   evalRunExternalId: z.string().max(200).optional(),
-  results: z.array(z.object({
-    candidateId: z.string().uuid(),
-    passed: z.boolean(),
-    score: z.number().optional(),
-    judgeOutput: JudgeOutputSchema,
-    failureMode: z.string().max(100).optional(),
-  })).min(1).max(100_000),
+  results: z
+    .array(
+      z.object({
+        candidateId: z.string().uuid(),
+        passed: z.boolean(),
+        score: z.number().optional(),
+        judgeOutput: JudgeOutputSchema,
+        failureMode: z.string().max(100).optional(),
+      })
+    )
+    .min(1)
+    .max(100_000),
   metadata: EvalMetadataSchema,
 });
 ```
@@ -925,7 +981,9 @@ await this.db.transaction(async (tx) => {
   const evalRun = await tx.insert(dsEvalRuns).values(runData).returning();
   for (let i = 0; i < results.length; i += CHUNK_SIZE) {
     const chunk = results.slice(i, i + CHUNK_SIZE);
-    await tx.insert(dsEvalResults).values(chunk.map(r => ({ ...r, evalRunId: evalRun[0]!.id })));
+    await tx
+      .insert(dsEvalResults)
+      .values(chunk.map((r) => ({ ...r, evalRunId: evalRun[0]!.id })));
   }
 });
 ```
@@ -934,18 +992,25 @@ await this.db.transaction(async (tx) => {
 
 ```typescript
 const versionCandidateIds = new Set(
-  await this.db.select({ id: dsDatasetVersionCandidates.candidateId })
+  await this.db
+    .select({ id: dsDatasetVersionCandidates.candidateId })
     .from(dsDatasetVersionCandidates)
     .where(eq(dsDatasetVersionCandidates.datasetVersionId, versionId))
-    .then(rows => rows.map(r => r.id))
+    .then((rows) => rows.map((r) => r.id))
 );
-const invalidIds = results.filter(r => !versionCandidateIds.has(r.candidateId));
-if (invalidIds.length > 0) throw new ValidationError(`${invalidIds.length} candidate IDs not in version`);
+const invalidIds = results.filter(
+  (r) => !versionCandidateIds.has(r.candidateId)
+);
+if (invalidIds.length > 0)
+  throw new ValidationError(
+    `${invalidIds.length} candidate IDs not in version`
+  );
 ```
 
 **Aggregate stats:** Compute `pass_rate` lazily from `ds_eval_results` at query time (not cached on `ds_eval_runs`) to prevent drift between cached aggregates and actual rows.
 
 **Acceptance criteria:**
+
 - [ ] Accept eval results linked to a released dataset version + model version
 - [ ] Validate dataset version exists and is released (`DatasetVersionNotReleasedError`)
 - [ ] Validate candidate IDs via set intersection (single query)
@@ -959,6 +1024,7 @@ if (invalidIds.length > 0) throw new ValidationError(`${invalidIds.length} candi
 `GET /api/v1/eval-results` — co-located with POST handler.
 
 **Query parameters:**
+
 - `dataset_version_id`, `model_name`, `model_version` — filters
 - `page`, `page_size` — pagination
 - `aggregate=scenario|failure_mode|risk_tier` — aggregation modes
@@ -974,6 +1040,7 @@ GROUP BY er.eval_run_id;
 ```
 
 **Acceptance criteria:**
+
 - [ ] Filter by dataset version, model name, model version
 - [ ] Pagination with `paginated()` response helper
 - [ ] Aggregation modes: by scenario, failure mode, risk tier
@@ -986,6 +1053,7 @@ GROUP BY er.eval_run_id;
 `GET /api/v1/eval-results/failure-analysis?dataset_version_id=<id>`
 
 **Algorithm:**
+
 - Query eval runs for the specified dataset version
 - Compare per-scenario pass rates across model versions (chronological ordering by `created_at`)
 - Classify each scenario:
@@ -998,6 +1066,7 @@ GROUP BY er.eval_run_id;
 **Trend detection:** Linear regression on pass rate over model versions. Slope < -0.1 → degrading, > 0.1 → improving, else stable. High variance (R^2 < 0.5 with non-zero slope) → fluctuating.
 
 **Acceptance criteria:**
+
 - [ ] Compare eval results across model versions for same dataset version
 - [ ] Requires at least 2 eval runs with different model versions (400 otherwise, `InsufficientEvalRunsError`)
 - [ ] Per-scenario classification into 5 categories
@@ -1077,15 +1146,15 @@ Wave 4 (Eval Loop)
 
 ## Risk Analysis & Mitigation
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| Phase 2 not complete when Phase 3 starts | High | Graceful degradation: skip feature-dependent metrics (shortcut detection) if Phase 2 data unavailable |
-| Statistical computations slow on large datasets | High | Background job pattern; SQL for set ops; cap anomaly arrays; add indexes |
-| Eval result schema varies across CI systems | Medium | Strict Zod schemas with `.strict()` on metadata objects; validate only required fields |
-| Gate policy complexity explosion | Low | Max 20 policies per suite; CHECK constraints on metric/scope/comparison |
-| RunDiagnostics becomes God Object | High | **Mitigated in Wave 0**: extract MetricComputer strategy objects before adding any metrics |
-| JSONB column growth in diagnostics reports | Medium | **Mitigated**: single `metrics` column + separate `ds_diagnostics_anomalies` table for per-candidate data |
-| Golden slice candidates become stale | Low | Track in `stale_candidate_ids` JSONB; exclude from diagnostics calculations |
+| Risk                                                  | Impact | Mitigation                                                                                                 |
+| ----------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------- |
+| Phase 2 not complete when Phase 3 starts              | High   | Graceful degradation: skip feature-dependent metrics (shortcut detection) if Phase 2 data unavailable      |
+| Statistical computations slow on large datasets       | High   | Background job pattern; SQL for set ops; cap anomaly arrays; add indexes                                   |
+| Eval result schema varies across CI systems           | Medium | Strict Zod schemas with `.strict()` on metadata objects; validate only required fields                     |
+| Gate policy complexity explosion                      | Low    | Max 20 policies per suite; CHECK constraints on metric/scope/comparison                                    |
+| RunDiagnostics becomes God Object                     | High   | **Mitigated in Wave 0**: extract MetricComputer strategy objects before adding any metrics                 |
+| JSONB column growth in diagnostics reports            | Medium | **Mitigated**: single `metrics` column + separate `ds_diagnostics_anomalies` table for per-candidate data  |
+| Golden slice candidates become stale                  | Low    | Track in `stale_candidate_ids` JSONB; exclude from diagnostics calculations                                |
 | Dataset context accumulates too many responsibilities | Medium | Eval results provisionally in Dataset; define extraction trigger (circular reads with diagnostics = split) |
 
 ## References & Research
