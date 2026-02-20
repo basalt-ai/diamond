@@ -1,7 +1,7 @@
 ---
 title: "feat: Automatic Dataset Version Refresh on Scenario Clustering"
 type: feat
-status: active
+status: completed
 date: 2026-02-21
 ---
 
@@ -383,16 +383,16 @@ When diagnostics reject an auto-generated draft:
 
 ### Functional Requirements
 
-- [ ] A `DatasetSuite` can have an optional `RefreshPolicy` configured via API
-- [ ] When `label_task.finalized` fires and enough validated candidates exist for an opted-in suite, a draft `DatasetVersion` is auto-created
-- [ ] When `scenario_graph.updated` fires with `added`/`removed` changes, opted-in suites are checked for refresh
-- [ ] Auto-created drafts auto-run diagnostics (transition to `validating`)
-- [ ] Only one draft version per suite at a time (guard against concurrent creation)
-- [ ] Cooldown period between auto-drafts is respected
-- [ ] Version string is auto-computed based on change type and policy
-- [ ] On manual release approval, configured export formats are auto-triggered
-- [ ] `RefreshRun` entity tracks end-to-end pipeline status
-- [ ] `GET /dataset-suites/:id/latest-version` returns the latest released version
+- [x] A `DatasetSuite` can have an optional `RefreshPolicy` configured via API
+- [x] When `label_task.finalized` fires and enough validated candidates exist for an opted-in suite, a draft `DatasetVersion` is auto-created
+- [x] When `scenario_graph.updated` fires with `added`/`removed` changes, opted-in suites are checked for refresh
+- [ ] Auto-created drafts auto-run diagnostics (transition to `validating`) — deferred: human triggers validation via existing PATCH /state
+- [x] Only one draft version per suite at a time (guard against concurrent creation)
+- [x] Cooldown period between auto-drafts is respected
+- [x] Version string is auto-computed based on change type and policy
+- [x] On manual release approval, configured export formats are auto-triggered
+- [x] `RefreshRun` entity tracks end-to-end pipeline status
+- [x] `GET /dataset-suites/:id/latest-version` returns the latest released version
 
 ### Non-Functional Requirements
 
