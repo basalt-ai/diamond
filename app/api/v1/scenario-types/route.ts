@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { manageScenarioTypes } from "@/contexts/scenario";
 import { withApiMiddleware } from "@/lib/api/middleware";
-import { created, ok } from "@/lib/api/response";
+import { created, paginated } from "@/lib/api/response";
 import { parseBody, parseQuery } from "@/lib/api/validate";
 
 const createSchema = z.object({
@@ -16,6 +16,8 @@ const createSchema = z.object({
 });
 
 const listQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  page_size: z.coerce.number().int().positive().max(100).default(20),
   parentId: z.string().optional(),
   riskTierId: z.string().uuid().optional(),
   archived: z
@@ -23,6 +25,10 @@ const listQuerySchema = z.object({
     .transform((v) => v === "true")
     .optional(),
   name: z.string().optional(),
+  needsReview: z
+    .enum(["true", "false"])
+    .transform((v) => v === "true")
+    .optional(),
 });
 
 export const POST = withApiMiddleware(async (req: NextRequest) => {
@@ -32,11 +38,13 @@ export const POST = withApiMiddleware(async (req: NextRequest) => {
 });
 
 export const GET = withApiMiddleware(async (req: NextRequest) => {
-  const query = parseQuery(req, listQuerySchema);
+  const { page, page_size, ...filters } = parseQuery(req, listQuerySchema);
   const filter = {
-    ...query,
-    parentId: query.parentId === "null" ? null : query.parentId,
+    ...filters,
+    parentId: filters.parentId === "null" ? null : filters.parentId,
   };
-  const result = await manageScenarioTypes.list(filter);
-  return ok(result);
+  const all = await manageScenarioTypes.list(filter);
+  const start = (page - 1) * page_size;
+  const sliced = all.slice(start, start + page_size);
+  return paginated(sliced, all.length, page, page_size);
 });
