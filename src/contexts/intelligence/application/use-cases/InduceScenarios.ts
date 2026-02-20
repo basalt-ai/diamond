@@ -60,12 +60,31 @@ export class InduceScenarios {
         reusedCount++;
       } else {
         // No match — create new scenario type
+        const riskCategory = cluster.suggestedRiskCategory ?? "business";
         const riskTier =
-          await this.scenarioTypeCreator.findRiskTierByCategory("business");
+          await this.scenarioTypeCreator.findRiskTierByCategory(riskCategory);
         if (!riskTier) {
           throw new Error(
             "No risk tiers found — run db:seed to create defaults"
           );
+        }
+
+        // Resolve/create failure modes
+        const failureModeIds: UUID[] = [];
+        for (const fm of cluster.suggestedFailureModes) {
+          const result =
+            await this.scenarioTypeCreator.findOrCreateFailureMode(fm);
+          failureModeIds.push(result.id);
+        }
+
+        // Resolve/create context profile
+        const contextProfileIds: UUID[] = [];
+        if (cluster.suggestedContextProfile) {
+          const result =
+            await this.scenarioTypeCreator.findOrCreateContextProfile(
+              cluster.suggestedContextProfile
+            );
+          contextProfileIds.push(result.id);
         }
 
         const scenarioType = await this.scenarioTypeCreator.create({
@@ -75,6 +94,8 @@ export class InduceScenarios {
             `Auto-induced from cluster ${cluster.label}`,
           riskTierId: riskTier.id,
           needsReview: true,
+          failureModeIds,
+          contextProfileIds,
         });
         scenarioTypeId = scenarioType.id;
       }

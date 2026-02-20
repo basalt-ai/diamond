@@ -66,6 +66,9 @@ export class DrizzleClusteringRunRepository implements ClusteringRunRepository {
             representativeCandidateIds: c.representativeCandidateIds,
             suggestedName: c.suggestedName,
             suggestedDescription: c.suggestedDescription,
+            suggestedRiskCategory: c.suggestedRiskCategory,
+            suggestedFailureModes: c.suggestedFailureModes,
+            suggestedContextProfile: c.suggestedContextProfile,
             inducedScenarioTypeId: c.inducedScenarioTypeId,
             centroid: c.centroid,
           }))
@@ -141,6 +144,15 @@ export class DrizzleClusteringRunRepository implements ClusteringRunRepository {
         []) as UUID[],
       suggestedName: c.suggestedName,
       suggestedDescription: c.suggestedDescription,
+      suggestedRiskCategory: c.suggestedRiskCategory as
+        | "business"
+        | "safety"
+        | "compliance"
+        | null,
+      suggestedFailureModes: (c.suggestedFailureModes ??
+        []) as ClusterData["suggestedFailureModes"],
+      suggestedContextProfile:
+        c.suggestedContextProfile as ClusterData["suggestedContextProfile"],
       inducedScenarioTypeId: c.inducedScenarioTypeId as UUID | null,
       centroid: c.centroid as number[] | null,
     }));

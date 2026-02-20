@@ -25,6 +25,16 @@ export interface ClusterData {
   representativeCandidateIds: UUID[];
   suggestedName: string | null;
   suggestedDescription: string | null;
+  suggestedRiskCategory: "business" | "safety" | "compliance" | null;
+  suggestedFailureModes: Array<{
+    name: string;
+    description: string;
+    severity: "low" | "medium" | "high" | "critical";
+  }>;
+  suggestedContextProfile: {
+    name: string;
+    attributes: Record<string, string>;
+  } | null;
   inducedScenarioTypeId: UUID | null;
   centroid: number[] | null;
 }

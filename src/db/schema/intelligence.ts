@@ -115,6 +115,11 @@ export const inClusters = pgTable(
       .default([]),
     suggestedName: varchar("suggested_name", { length: 255 }),
     suggestedDescription: text("suggested_description"),
+    suggestedRiskCategory: varchar("suggested_risk_category", { length: 20 }),
+    suggestedFailureModes: jsonb("suggested_failure_modes")
+      .notNull()
+      .default([]),
+    suggestedContextProfile: jsonb("suggested_context_profile"),
     inducedScenarioTypeId: uuid("induced_scenario_type_id").references(
       () => scScenarioTypes.id,
       { onDelete: "set null" }

@@ -68,6 +68,9 @@ export class ManageClusteringRuns {
           representativeCandidateIds: c.representative_ids as UUID[],
           suggestedName: null,
           suggestedDescription: null,
+          suggestedRiskCategory: null,
+          suggestedFailureModes: [],
+          suggestedContextProfile: null,
           inducedScenarioTypeId: null,
           centroid: null,
         };
@@ -80,6 +83,9 @@ export class ManageClusteringRuns {
             );
             cluster.suggestedName = summary.suggestedName;
             cluster.suggestedDescription = summary.suggestedDescription;
+            cluster.suggestedRiskCategory = summary.suggestedRiskCategory;
+            cluster.suggestedFailureModes = summary.suggestedFailureModes;
+            cluster.suggestedContextProfile = summary.suggestedContextProfile;
           } catch {
             // Fallback naming
             cluster.suggestedName = `Cluster ${c.cluster_id}`;
