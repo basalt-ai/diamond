@@ -1,5 +1,6 @@
 import { db } from "@/db";
 
+import { AutoRefreshOrchestrator } from "./application/services/AutoRefreshOrchestrator";
 import { ComputeDrift } from "./application/use-cases/ComputeDrift";
 import { ComputeVersionDiff } from "./application/use-cases/ComputeVersionDiff";
 import { ManageDatasetSuites } from "./application/use-cases/ManageDatasetSuites";
@@ -12,6 +13,7 @@ import { RunDiagnostics } from "./application/use-cases/RunDiagnostics";
 import { RunFailureAnalysis } from "./application/use-cases/RunFailureAnalysis";
 import { AgreementComputer } from "./domain/services/AgreementComputer";
 import { GateEvaluator } from "./domain/services/GateEvaluator";
+import { VersionComputer } from "./domain/services/VersionComputer";
 import { RedundancyComputer } from "./domain/services/RedundancyComputer";
 import { CandidateContextAdapter } from "./infrastructure/CandidateContextAdapter";
 import { CandidateDistributionAdapter } from "./infrastructure/CandidateDistributionAdapter";
@@ -77,4 +79,15 @@ export const manageSlices = new ManageSlices(sliceRepo);
 export const runFailureAnalysis = new RunFailureAnalysis(
   evalRunRepo,
   versionRepo
+);
+
+const versionComputer = new VersionComputer();
+
+export const autoRefreshOrchestrator = new AutoRefreshOrchestrator(
+  suiteRepo,
+  versionRepo,
+  candidateReader,
+  scenarioReader,
+  labelReader,
+  versionComputer
 );

@@ -10,4 +10,5 @@ export interface CandidateInfo {
 export interface CandidateReader {
   getMany(candidateIds: UUID[]): Promise<CandidateInfo[]>;
   isInState(candidateId: UUID, states: string[]): Promise<boolean>;
+  findEligibleForDataset(scenarioTypeIds: UUID[] | "all"): Promise<CandidateInfo[]>;
 }
