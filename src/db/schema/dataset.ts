@@ -217,6 +217,34 @@ export const dsEvalResults = pgTable(
   ]
 );
 
+// ── RefreshRun ──────────────────────────────────────────────────────
+
+export const dsRefreshRuns = pgTable(
+  "ds_refresh_runs",
+  {
+    id: uuid().primaryKey(),
+    suiteId: uuid("suite_id")
+      .notNull()
+      .references(() => dsDatasetSuites.id, { onDelete: "restrict" }),
+    triggeredBy: varchar("triggered_by", { length: 50 }).notNull(),
+    triggerEventId: varchar("trigger_event_id", { length: 100 }).notNull(),
+    status: varchar({ length: 30 }).notNull().default("pending_scenarios"),
+    scenarioChanges: jsonb("scenario_changes").notNull().default([]),
+    candidateCount: doublePrecision("candidate_count").notNull().default(0),
+    datasetVersionId: uuid("dataset_version_id").references(
+      () => dsDatasetVersions.id
+    ),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("ds_refresh_runs_suite_id_idx").on(t.suiteId),
+    index("ds_refresh_runs_status_idx").on(t.status),
+  ]
+);
+
 // ── Relations ───────────────────────────────────────────────────────
 
 export const dsDatasetSuitesRelations = relations(
@@ -224,8 +252,20 @@ export const dsDatasetSuitesRelations = relations(
   ({ many }) => ({
     versions: many(dsDatasetVersions),
     releaseGatePolicies: many(dsReleaseGatePolicies),
+    refreshRuns: many(dsRefreshRuns),
   })
 );
+
+export const dsRefreshRunsRelations = relations(dsRefreshRuns, ({ one }) => ({
+  suite: one(dsDatasetSuites, {
+    fields: [dsRefreshRuns.suiteId],
+    references: [dsDatasetSuites.id],
+  }),
+  datasetVersion: one(dsDatasetVersions, {
+    fields: [dsRefreshRuns.datasetVersionId],
+    references: [dsDatasetVersions.id],
+  }),
+}));
 
 export const dsDatasetVersionsRelations = relations(
   dsDatasetVersions,

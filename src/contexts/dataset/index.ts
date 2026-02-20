@@ -4,6 +4,7 @@ import { AutoRefreshOrchestrator } from "./application/services/AutoRefreshOrche
 import { ComputeDrift } from "./application/use-cases/ComputeDrift";
 import { ComputeVersionDiff } from "./application/use-cases/ComputeVersionDiff";
 import { ManageDatasetSuites } from "./application/use-cases/ManageDatasetSuites";
+import { ManageRefreshRuns } from "./application/use-cases/ManageRefreshRuns";
 import { ManageRefreshPolicies } from "./application/use-cases/ManageRefreshPolicies";
 import { ManageDatasetVersions } from "./application/use-cases/ManageDatasetVersions";
 import { ManageEvalRuns } from "./application/use-cases/ManageEvalRuns";
@@ -16,6 +17,7 @@ import { GateEvaluator } from "./domain/services/GateEvaluator";
 import { VersionComputer } from "./domain/services/VersionComputer";
 import { RedundancyComputer } from "./domain/services/RedundancyComputer";
 import { CandidateContextAdapter } from "./infrastructure/CandidateContextAdapter";
+import { DrizzleRefreshRunRepository } from "./infrastructure/DrizzleRefreshRunRepository";
 import { CandidateDistributionAdapter } from "./infrastructure/CandidateDistributionAdapter";
 import { DrizzleDatasetSuiteRepository } from "./infrastructure/DrizzleDatasetSuiteRepository";
 import { DrizzleDatasetVersionRepository } from "./infrastructure/DrizzleDatasetVersionRepository";
@@ -90,4 +92,12 @@ export const autoRefreshOrchestrator = new AutoRefreshOrchestrator(
   scenarioReader,
   labelReader,
   versionComputer
+);
+
+const refreshRunRepo = new DrizzleRefreshRunRepository(db);
+
+export const manageRefreshRuns = new ManageRefreshRuns(
+  refreshRunRepo,
+  suiteRepo,
+  autoRefreshOrchestrator
 );
