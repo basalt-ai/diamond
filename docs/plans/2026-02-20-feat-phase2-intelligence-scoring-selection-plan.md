@@ -24,31 +24,31 @@ linear_issues: GET-180, GET-181, GET-182, GET-183, GET-184, GET-185, GET-186, GE
 
 ### Critical Issues Discovered
 
-| Issue | Severity | Resolution |
-|-------|----------|------------|
-| Candidate context becoming God context | High | Extract Intelligence bounded context |
-| Event bus split-brain (Next.js vs. worker) | High | Chain jobs directly via pg-boss, not cross-process events |
-| Python subprocess injection risk | Critical | Mandate `execFile`, absolute paths, strict parameter typing |
-| Loading all embeddings into optimizer memory | High | Delegate redundancy to pgvector queries via `RedundancyOracle` port |
-| HNSW index creation locks table | High | Use `CREATE INDEX CONCURRENTLY` in custom migration |
-| OpenAI API key in error logs/DLQ | High | Error sanitization utility stripping secrets |
-| No rate limiting on scoring/selection triggers | High | Rate limiter middleware + singleton job enforcement at API layer |
-| `sec-fetch-site` auth bypass is spoofable | High | Fix in proxy.ts before Phase 2 (pre-existing) |
+| Issue                                          | Severity | Resolution                                                          |
+| ---------------------------------------------- | -------- | ------------------------------------------------------------------- |
+| Candidate context becoming God context         | High     | Extract Intelligence bounded context                                |
+| Event bus split-brain (Next.js vs. worker)     | High     | Chain jobs directly via pg-boss, not cross-process events           |
+| Python subprocess injection risk               | Critical | Mandate `execFile`, absolute paths, strict parameter typing         |
+| Loading all embeddings into optimizer memory   | High     | Delegate redundancy to pgvector queries via `RedundancyOracle` port |
+| HNSW index creation locks table                | High     | Use `CREATE INDEX CONCURRENTLY` in custom migration                 |
+| OpenAI API key in error logs/DLQ               | High     | Error sanitization utility stripping secrets                        |
+| No rate limiting on scoring/selection triggers | High     | Rate limiter middleware + singleton job enforcement at API layer    |
+| `sec-fetch-site` auth bypass is spoofable      | High     | Fix in proxy.ts before Phase 2 (pre-existing)                       |
 
 ### Scope Simplifications (YAGNI)
 
-| Item | Action | Impact |
-|------|--------|--------|
-| `cd_embedding_models` table | Replace with config constant | -1 table, -1 use case |
-| `cd_judge_cache` table + `LLMJudge` port | Defer to future phase | -1 table, -1 port |
-| `driftSignal` dimension (GET-184) | Defer — needs historical baseline | -1 scorer |
-| `costEstimate` dimension (GET-186) | Defer — needs real labeling data | -1 scorer |
-| Adaptive normalization (3-tier) | Rank-only for Phase 2 | -1 port, -1 adapter |
-| `SelectionWeights` (8 configurable) | Hardcode equal weights | Simpler API |
-| `SelectionConstraints` (4 constraint types) | Budget-only for Phase 2 MVP | -60 LOC constraint checking |
-| `SelectionEvaluator` / backtesting (GET-189) | Defer — needs labeled outcomes | -1 port |
-| `duplicate_group_id` column | Remove — redundancyPenalty score suffices | -1 column |
-| `embeddingType` multi-type | Single "combined" type | Simpler schema |
+| Item                                         | Action                                    | Impact                      |
+| -------------------------------------------- | ----------------------------------------- | --------------------------- |
+| `cd_embedding_models` table                  | Replace with config constant              | -1 table, -1 use case       |
+| `cd_judge_cache` table + `LLMJudge` port     | Defer to future phase                     | -1 table, -1 port           |
+| `driftSignal` dimension (GET-184)            | Defer — needs historical baseline         | -1 scorer                   |
+| `costEstimate` dimension (GET-186)           | Defer — needs real labeling data          | -1 scorer                   |
+| Adaptive normalization (3-tier)              | Rank-only for Phase 2                     | -1 port, -1 adapter         |
+| `SelectionWeights` (8 configurable)          | Hardcode equal weights                    | Simpler API                 |
+| `SelectionConstraints` (4 constraint types)  | Budget-only for Phase 2 MVP               | -60 LOC constraint checking |
+| `SelectionEvaluator` / backtesting (GET-189) | Defer — needs labeled outcomes            | -1 port                     |
+| `duplicate_group_id` column                  | Remove — redundancyPenalty score suffices | -1 column                   |
+| `embeddingType` multi-type                   | Single "combined" type                    | Simpler schema              |
 
 ---
 
@@ -161,6 +161,7 @@ The Candidate context stays lean (state machine, basic CRUD). Intelligence reads
 The Architecture review identified a critical issue: the `InProcessEventBus` is an in-memory singleton. The Next.js process and the pg-boss worker process have **separate instances**. Events published in the worker won't reach handlers in the Next.js process.
 
 **Resolution:** Do NOT use domain events for cross-process communication. Instead:
+
 - **Within Next.js process:** Use in-process event bus (existing pattern) to trigger pg-boss job enqueueing
 - **Within worker process:** Chain jobs directly via pg-boss (embedding job completes → enqueue scoring job). No domain events for pipeline orchestration.
 - **Worker → Next.js:** Job completion writes state to DB (ScoringRun.state = "completed"). Next.js reads via API. No event needed.
@@ -200,18 +201,18 @@ The Architecture review identified a critical issue: the `InProcessEventBus` is 
 
 ### Design Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Job queue | pg-boss (PostgreSQL-native) | No new infra (no Redis), SKIP LOCKED, retries, dead-letter queues |
-| Embeddings | OpenAI text-embedding-3-small, 1536 dims | Best cost/quality ratio at $0.02/1M tokens; Drizzle has native `vector()` |
-| Vector index | pgvector HNSW with cosine distance | Sub-2ms queries at 100k scale, no training step needed |
-| Clustering | HDBSCAN via Python subprocess | scikit-learn 1.3+ has built-in HDBSCAN; no viable JS implementation |
-| Submodular optimizer | Custom TypeScript implementation | Algorithm is ~30 lines; no JS library exists; lazy greedy with heap for 10-100x speedup |
-| Score normalization | Adaptive (rank → robust min-max → quantile) | Handles cold-start (few candidates) through steady-state (thousands) |
-| "Embedded" tracking | `embeddedAt: timestamp | null` flag, NOT a new state | Avoids breaking the existing `raw → scored` state machine |
-| Worker deployment | Separate long-running Node.js process | Next.js routes are ephemeral; pg-boss workers need persistent connections |
-| Normalization timing | Computed at selection time, not stored | Raw scores stored on candidate; normalization is ephemeral over current pool |
-| Concurrency control | Singleton scoring/selection runs via pg-boss unique job keys | Prevents overlapping runs; selection rejects if scoring is active |
+| Decision             | Choice                                                       | Rationale                                                                               |
+| -------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Job queue            | pg-boss (PostgreSQL-native)                                  | No new infra (no Redis), SKIP LOCKED, retries, dead-letter queues                       |
+| Embeddings           | OpenAI text-embedding-3-small, 1536 dims                     | Best cost/quality ratio at $0.02/1M tokens; Drizzle has native `vector()`               |
+| Vector index         | pgvector HNSW with cosine distance                           | Sub-2ms queries at 100k scale, no training step needed                                  |
+| Clustering           | HDBSCAN via Python subprocess                                | scikit-learn 1.3+ has built-in HDBSCAN; no viable JS implementation                     |
+| Submodular optimizer | Custom TypeScript implementation                             | Algorithm is ~30 lines; no JS library exists; lazy greedy with heap for 10-100x speedup |
+| Score normalization  | Adaptive (rank → robust min-max → quantile)                  | Handles cold-start (few candidates) through steady-state (thousands)                    |
+| "Embedded" tracking  | `embeddedAt: timestamp                                       | null` flag, NOT a new state                                                             | Avoids breaking the existing `raw → scored` state machine |
+| Worker deployment    | Separate long-running Node.js process                        | Next.js routes are ephemeral; pg-boss workers need persistent connections               |
+| Normalization timing | Computed at selection time, not stored                       | Raw scores stored on candidate; normalization is ephemeral over current pool            |
+| Concurrency control  | Singleton scoring/selection runs via pg-boss unique job keys | Prevents overlapping runs; selection rejects if scoring is active                       |
 
 ### Research Insights — Design Decisions
 
@@ -231,10 +232,13 @@ export interface JobRegistry {
 
 export interface JobQueue {
   send<K extends keyof JobRegistry>(
-    name: K, data: JobRegistry[K], options?: JobOptions
+    name: K,
+    data: JobRegistry[K],
+    options?: JobOptions
   ): Promise<string>;
   work<K extends keyof JobRegistry>(
-    name: K, handler: (job: { id: string; data: JobRegistry[K] }) => Promise<void>,
+    name: K,
+    handler: (job: { id: string; data: JobRegistry[K] }) => Promise<void>,
     options?: WorkerOptions
   ): Promise<void>;
 }
@@ -255,10 +259,13 @@ let _boss: PgBoss | null = null;
 export async function getJobClient(): Promise<PgBoss> {
   if (!_boss) {
     _boss = new PgBoss({
-      connectionString: process.env.PGBOSS_DATABASE_URL ?? process.env.DATABASE_URL!,
+      connectionString:
+        process.env.PGBOSS_DATABASE_URL ?? process.env.DATABASE_URL!,
       schema: "pgboss",
       application_name: "diamond-api",
-      supervise: false, schedule: false, migrate: false,
+      supervise: false,
+      schedule: false,
+      migrate: false,
       max: 3,
     });
     _boss.on("error", console.error);
@@ -272,15 +279,15 @@ export async function getJobClient(): Promise<PgBoss> {
 
 Start with 5 dimensions instead of 8. Defer `driftSignal` (needs historical baseline), `costEstimate` (needs labeling data), and merge `uncertainty` + `failureLikelihood` into `failureProbability`:
 
-| Dimension | Phase 2 MVP | Rationale |
-|-----------|:-----------:|-----------|
-| `coverageGain` | Yes | Core value prop |
-| `riskWeight` | Yes | Maps to existing risk tiers |
-| `novelty` | Yes | Primary use of embeddings |
-| `redundancyPenalty` | Yes | Other primary use of embeddings |
-| `failureProbability` | Yes | Merged uncertainty + failure heuristic |
-| `driftSignal` | Defer | Needs historical baseline |
-| `costEstimate` | Defer | Needs real labeling data |
+| Dimension            | Phase 2 MVP | Rationale                              |
+| -------------------- | :---------: | -------------------------------------- |
+| `coverageGain`       |     Yes     | Core value prop                        |
+| `riskWeight`         |     Yes     | Maps to existing risk tiers            |
+| `novelty`            |     Yes     | Primary use of embeddings              |
+| `redundancyPenalty`  |     Yes     | Other primary use of embeddings        |
+| `failureProbability` |     Yes     | Merged uncertainty + failure heuristic |
+| `driftSignal`        |    Defer    | Needs historical baseline              |
+| `costEstimate`       |    Defer    | Needs real labeling data               |
 
 **Rank-Only Normalization (Simplicity Review):**
 
@@ -377,6 +384,7 @@ export interface JobQueue {
 ```
 
 **Worker process** (`src/lib/jobs/worker.ts`):
+
 - Standalone `node` entry point (not a Next.js API route)
 - Initializes pg-boss with its own `pg` connection pool (separate from Drizzle's postgres.js)
 - Registers all job handlers
@@ -386,6 +394,7 @@ export interface JobQueue {
 **Dependencies:** `pg-boss@^12`, `pg@^8` (pg-boss requires node-postgres, not postgres.js)
 
 **Database setup:**
+
 - pg-boss creates its own `pgboss` schema automatically on start
 - No Drizzle migration needed for pg-boss internals
 
@@ -398,6 +407,7 @@ pg-boss uses `pg` (node-postgres) internally, not `postgres.js`. Two options:
 2. **Adapter wrapper:** Write a thin adapter around postgres.js `sql.unsafe()`. Riskier, less tested.
 
 Choose option 1 for reliability. The app will have two connection pools:
+
 - Drizzle → postgres.js (existing)
 - pg-boss → pg (new, ~5 connections)
 
@@ -425,14 +435,14 @@ export async function createQueues(boss: PgBoss): Promise<void> {
     retryLimit: 3,
     retryDelay: 30,
     retryBackoff: true,
-    expireInSeconds: 300,      // 5 min per embedding
+    expireInSeconds: 300, // 5 min per embedding
     deadLetter: QUEUES.EMBEDDING_DLQ,
   });
   await boss.createQueue(QUEUES.SCORING_RUN, {
     retryLimit: 2,
     retryDelay: 60,
     retryBackoff: true,
-    expireInSeconds: 3600,     // 1 hour for full scoring run
+    expireInSeconds: 3600, // 1 hour for full scoring run
     deadLetter: QUEUES.SCORING_DLQ,
   });
   // ... similar for other queues
@@ -485,19 +495,30 @@ export const cdEmbeddings = pgTable(
   "cd_embeddings",
   {
     id: uuid("id").primaryKey(),
-    candidateId: uuid("candidate_id").notNull().references(() => cdCandidates.id),
+    candidateId: uuid("candidate_id")
+      .notNull()
+      .references(() => cdCandidates.id),
     embeddingType: varchar("embedding_type", { length: 50 }).notNull(), // "request", "conversation", "answer", "combined"
     embedding: vector("embedding", { dimensions: 1536 }).notNull(),
     modelId: varchar("model_id", { length: 100 }).notNull(), // "oai-te3s-1536"
     modelVersion: varchar("model_version", { length: 50 }).notNull(),
     tokenCount: integer("token_count"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [
     index("cd_embeddings_candidate_id_idx").on(t.candidateId),
-    index("cd_embeddings_hnsw_idx").using("hnsw", t.embedding.op("vector_cosine_ops")),
+    index("cd_embeddings_hnsw_idx").using(
+      "hnsw",
+      t.embedding.op("vector_cosine_ops")
+    ),
     // Unique: one embedding per candidate per type per model
-    uniqueIndex("cd_embeddings_candidate_type_model_uniq").on(t.candidateId, t.embeddingType, t.modelId),
+    uniqueIndex("cd_embeddings_candidate_type_model_uniq").on(
+      t.candidateId,
+      t.embeddingType,
+      t.modelId
+    ),
   ]
 );
 
@@ -508,7 +529,9 @@ export const cdEmbeddingModels = pgTable("cd_embedding_models", {
   modelName: varchar("model_name", { length: 100 }).notNull(), // "text-embedding-3-small"
   dimensions: integer("dimensions").notNull(), // 1536
   isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
   deprecatedAt: timestamp("deprecated_at", { withTimezone: true }),
 });
 
@@ -518,6 +541,7 @@ export const cdEmbeddingModels = pgTable("cd_embedding_models", {
 ```
 
 **Candidate entity changes:**
+
 - Add `embeddedAt: Date | null` field to `CandidateData` interface
 - Add `scoringDirty: boolean` field for incremental processing (GET-188)
 - Add `markEmbedded()` and `markDirty()` methods to `Candidate` aggregate
@@ -544,8 +568,17 @@ Note: `CREATE INDEX CONCURRENTLY` cannot run inside a transaction. Ensure the mi
 pg-boss singleton keys prevent duplicate jobs, but edge cases (retry after partial completion, worker crash) can cause duplicate inserts. Use `ON CONFLICT DO UPDATE`:
 
 ```typescript
-await db.insert(inEmbeddings)
-  .values({ id: generateId(), candidateId, embeddingType: "combined", embedding, modelId, modelVersion, tokenCount })
+await db
+  .insert(inEmbeddings)
+  .values({
+    id: generateId(),
+    candidateId,
+    embeddingType: "combined",
+    embedding,
+    modelId,
+    modelVersion,
+    tokenCount,
+  })
   .onConflictDoUpdate({
     target: [inEmbeddings.candidateId, inEmbeddings.modelId],
     set: { embedding, tokenCount, updatedAt: new Date() },
@@ -566,6 +599,7 @@ These stay small (only relevant rows) and accelerate the most common query patte
 **Simplified schema (Simplicity Review):** Remove `embeddingType` multi-type — use single "combined" embedding per candidate. Remove `cd_embedding_models` table — use a config constant. This simplifies the unique constraint to just `(candidateId, modelId)`.
 
 **Add missing foreign keys (Data Integrity Review):**
+
 - `in_embeddings.candidate_id` → `cd_candidates.id` with `ON DELETE RESTRICT`
 - `in_scenario_centroids.scenario_type_id` → `sc_scenario_types.id` with `ON DELETE CASCADE`
 
@@ -591,6 +625,7 @@ export interface EmbeddingProvider {
 ```
 
 **New adapter** (`src/contexts/candidate/infrastructure/OpenAIEmbeddingProvider.ts`):
+
 - Uses `openai` SDK v4+
 - Batches texts (max 2048 items, max 300k tokens per request)
 - Concurrency control via `p-limit` (3-5 parallel requests)
@@ -598,10 +633,12 @@ export interface EmbeddingProvider {
 - Configurable model and dimensions via env vars: `OPENAI_API_KEY`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`
 
 **New handler** (`src/contexts/candidate/application/handlers/onCandidateCreated.ts`):
+
 - Subscribes to `candidate.created`
 - Queues `embedding.compute` job via `JobQueue`
 
 **Job handler** (registered in worker):
+
 - Reads episode content via `EpisodeReader` port
 - Calls `EmbeddingProvider.embed()` with concatenated input/output text
 - Stores embedding in `cd_embeddings` table
@@ -625,6 +662,7 @@ export const EMBEDDING_CONFIG = {
 ```
 
 The `modelId` string is still stored on each embedding row for future migration. If a model swap is ever needed:
+
 1. Update the constant
 2. Query `WHERE model_id != '<new_model_id>'` to find stale embeddings
 3. Mark those candidates as `scoringDirty = true`
@@ -689,6 +727,7 @@ export interface FeatureExtractor {
 ```
 
 **Adapter** (`src/contexts/candidate/infrastructure/EpisodeFeatureExtractor.ts`):
+
 - Reads episode inputs/outputs/trace
 - Computes each feature from episode data
 - Pure function — no external API calls
@@ -700,13 +739,15 @@ export interface FeatureExtractor {
 ```typescript
 import { z } from "zod";
 
-export const ScoreVectorSchema = z.object({
-  coverageGain: z.number().nonnegative(),         // How much new coverage this candidate adds
-  riskWeight: z.number().nonnegative(),            // From scenario's RiskTier weight
-  novelty: z.number().min(0).max(1),               // Cosine distance to nearest neighbor in embedding space
-  failureProbability: z.number().min(0).max(1),    // Merged uncertainty + failure likelihood heuristic
-  redundancyPenalty: z.number().min(0).max(1),     // Similarity to already-selected/existing candidates (penalty)
-}).readonly();
+export const ScoreVectorSchema = z
+  .object({
+    coverageGain: z.number().nonnegative(), // How much new coverage this candidate adds
+    riskWeight: z.number().nonnegative(), // From scenario's RiskTier weight
+    novelty: z.number().min(0).max(1), // Cosine distance to nearest neighbor in embedding space
+    failureProbability: z.number().min(0).max(1), // Merged uncertainty + failure likelihood heuristic
+    redundancyPenalty: z.number().min(0).max(1), // Similarity to already-selected/existing candidates (penalty)
+  })
+  .readonly();
 
 export type ScoreVector = z.infer<typeof ScoreVectorSchema>;
 ```
@@ -721,20 +762,20 @@ export interface DimensionScorer {
 }
 ```
 
-| Dimension | Implementation | Depends On |
-|-----------|---------------|------------|
-| `coverageGain` | Count candidates per scenario type vs. existing dataset; gap = high gain | ScenarioReader, DatasetReader |
-| `riskWeight` | Look up mapped scenario's RiskTier.weight | ScenarioReader |
-| `novelty` | Cosine distance to K nearest neighbors in embedding space | pgvector query |
-| `failureProbability` | has_negative_feedback, low confidence, high tool error rate (merged heuristic) | FeatureSet |
-| `redundancyPenalty` | Cosine similarity to already-selected candidates and existing dataset | pgvector query |
+| Dimension            | Implementation                                                                 | Depends On                    |
+| -------------------- | ------------------------------------------------------------------------------ | ----------------------------- |
+| `coverageGain`       | Count candidates per scenario type vs. existing dataset; gap = high gain       | ScenarioReader, DatasetReader |
+| `riskWeight`         | Look up mapped scenario's RiskTier.weight                                      | ScenarioReader                |
+| `novelty`            | Cosine distance to K nearest neighbors in embedding space                      | pgvector query                |
+| `failureProbability` | has_negative_feedback, low confidence, high tool error rate (merged heuristic) | FeatureSet                    |
+| `redundancyPenalty`  | Cosine similarity to already-selected candidates and existing dataset          | pgvector query                |
 
 **Deferred to Phase 3 (need historical data):**
 
-| Dimension | Why Deferred |
-|-----------|-------------|
-| `driftSignal` (GET-184) | Needs meaningful historical baseline that a fresh system doesn't have |
-| `costEstimate` (GET-186) | Annotation cost poorly estimated without actual labeling data |
+| Dimension                | Why Deferred                                                          |
+| ------------------------ | --------------------------------------------------------------------- |
+| `driftSignal` (GET-184)  | Needs meaningful historical baseline that a fresh system doesn't have |
+| `costEstimate` (GET-186) | Annotation cost poorly estimated without actual labeling data         |
 
 **Port** (`src/contexts/intelligence/application/ports/ScoringEngine.ts`):
 
@@ -753,6 +794,7 @@ export interface ScoringEngine {
 ```
 
 **Adapter** (`src/contexts/intelligence/infrastructure/CompositeScoringEngine.ts`):
+
 - Composes `DimensionScorer[]` — each scorer is independently testable
 - Batch mode for efficiency (single pgvector query for all novelty scores, single DB query for all coverage gains)
 - Adding/removing dimensions = adding/removing a scorer from the array
@@ -774,6 +816,7 @@ GROUP BY scenario_type_id;
 **Process scoring runs in batches of 100-500 (Performance Review).** Do NOT hold a single transaction for the entire run. Commit per batch, update `processedCount`, and enable resumability on failure.
 
 **TypeScript type safety for scores (TypeScript Review):**
+
 - Replace `Record<string, unknown>` on `CandidateData.scores` with `ScoreVector | null` (null when state is "raw")
 - Replace `Record<string, unknown>` on `CandidateData.features` with `FeatureSet | null`
 - Add `.$type<ScoreVector>()` to the `jsonb("scores")` Drizzle column
@@ -787,14 +830,15 @@ GROUP BY scenario_type_id;
 // src/contexts/intelligence/domain/services/normalizeScores.ts
 export function normalizeByRank(
   scores: ReadonlyArray<ScoreVector>,
-  dimension: keyof ScoreVector,
+  dimension: keyof ScoreVector
 ): number[] {
   const sorted = scores
     .map((s, i) => ({ i, v: s[dimension] }))
     .sort((a, b) => a.v - b.v);
   const result = new Array<number>(scores.length);
   for (let rank = 0; rank < sorted.length; rank++) {
-    result[sorted[rank]!.i] = sorted.length > 1 ? rank / (sorted.length - 1) : 0.5;
+    result[sorted[rank]!.i] =
+      sorted.length > 1 ? rank / (sorted.length - 1) : 0.5;
   }
   return result;
 }
@@ -814,7 +858,12 @@ export function normalizeByRank(
 **New entity** (`src/contexts/intelligence/domain/entities/ScoringRun.ts`):
 
 ```typescript
-export const SCORING_RUN_STATES = ["pending", "processing", "completed", "failed"] as const;
+export const SCORING_RUN_STATES = [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+] as const;
 export type ScoringRunState = (typeof SCORING_RUN_STATES)[number];
 
 export interface ScoringRunData {
@@ -858,14 +907,19 @@ export const cdScoringRuns = pgTable("cd_scoring_runs", {
   startedAt: timestamp("started_at", { withTimezone: true }),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   error: text("error"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 ```
 
 #### 2B.5 — Incremental Scoring Pipeline (GET-188)
 
 **Dirty tracking:**
+
 - `cd_candidates.scoring_dirty` boolean column (default `true` for new candidates)
 - Set to `true` when:
   - Candidate is newly created (`onCandidateCreated`)
@@ -874,6 +928,7 @@ export const cdScoringRuns = pgTable("cd_scoring_runs", {
 - Scoring run only processes candidates where `scoring_dirty = true`
 
 **Event handler** (`src/contexts/candidate/application/handlers/onScenarioGraphUpdated.ts`) (GET-187):
+
 - Subscribes to `scenario_graph.updated`
 - Reads `changes` payload to identify affected scenario type IDs
 - Marks all candidates with those scenario types as `scoringDirty = true`
@@ -896,6 +951,7 @@ export interface ScenarioMapper {
 ```
 
 **Adapter** (`src/contexts/candidate/infrastructure/EmbeddingScenarioMapper.ts`):
+
 - Maintains scenario type centroids (average embedding of all mapped candidates per type)
 - Centroids stored in `cd_scenario_centroids` table (pgvector column)
 - On map: cosine similarity between candidate embedding and all centroids
@@ -910,7 +966,9 @@ export const cdScenarioCentroids = pgTable("cd_scenario_centroids", {
   scenarioTypeId: uuid("scenario_type_id").primaryKey(),
   centroid: vector("centroid", { dimensions: 1536 }).notNull(),
   candidateCount: integer("candidate_count").notNull().default(0),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 ```
 
@@ -932,6 +990,7 @@ app/api/v1/candidates/[id]/features/route.ts → GET (feature set)
 **Implementation:** Inline during scoring, not a separate pipeline step.
 
 When computing `redundancyPenalty` for a candidate:
+
 1. pgvector cosine similarity query: find K nearest neighbors (K=10)
 2. If any neighbor has similarity > threshold (default 0.95): flag as near-duplicate
 3. `redundancyPenalty` = max similarity to any already-selected candidate or existing dataset member
@@ -945,18 +1004,21 @@ duplicateGroupId: varchar("duplicate_group_id", { length: 100 }),
 ```
 
 **Configuration:**
+
 - `DEDUP_SIMILARITY_THRESHOLD` env var (default 0.95 for near-exact, 0.85 for semantic)
 - Threshold configurable per selection run as well
 
 #### 2C.2 — HDBSCAN Cluster Detection
 
 **Python script** (`scripts/cluster.py`):
+
 - Reads embeddings as JSON from stdin (or temp file for large datasets)
 - Runs `sklearn.cluster.HDBSCAN(min_cluster_size=5, min_samples=3)`
 - Outputs cluster labels, probabilities, and exemplar indices as JSON
 - Version-pinned in `requirements.txt`: `scikit-learn>=1.3,<2.0`
 
 **pg-boss job:**
+
 - `cluster.detect` — cron-scheduled (daily or on-demand)
 - Fetches all unmapped candidate embeddings from DB
 - Writes to temp file if > 10k rows
@@ -968,11 +1030,13 @@ duplicateGroupId: varchar("duplicate_group_id", { length: 100 }),
   - centroid_summary (TBD: could use LLM to summarize)
 
 **Event handler** (`src/contexts/scenario/application/handlers/onUnmappedClusterDetected.ts`):
+
 - Receives cluster detection event
 - Creates a "suggestion" record in the Scenario context for domain expert review
 - No automatic scenario creation — human-in-the-loop
 
 **Error handling:**
+
 - Python subprocess timeout: 10 minutes (configurable)
 - OOM: catch subprocess exit code, log, mark job as failed
 - Pool too small (< 15 unmapped candidates): skip clustering, no-op
@@ -1001,14 +1065,19 @@ duplicateGroupId: varchar("duplicate_group_id", { length: 100 }),
 **Entity** (`src/contexts/candidate/domain/entities/SelectionRun.ts`):
 
 ```typescript
-export const SELECTION_RUN_STATES = ["pending", "processing", "completed", "failed"] as const;
+export const SELECTION_RUN_STATES = [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+] as const;
 
 export interface SelectionConstraints {
   budget: number; // max candidates to select (integer count)
   scenarioMinimums?: Record<string, number>; // scenarioTypeId → min count
-  riskTierQuotas?: Record<string, number>;   // riskTierName → min count
-  freshnessRequirement?: number;              // max episode age in days
-  excludeStates?: CandidateState[];          // states to exclude from pool (default: selected, labeled, validated, released)
+  riskTierQuotas?: Record<string, number>; // riskTierName → min count
+  freshnessRequirement?: number; // max episode age in days
+  excludeStates?: CandidateState[]; // states to exclude from pool (default: selected, labeled, validated, released)
 }
 
 export interface SelectionRationale {
@@ -1026,7 +1095,10 @@ export interface SelectionRunData {
   totalPoolSize: number;
   coverageImprovement: number;
   constraintsSatisfied: boolean;
-  constraintStatus: Record<string, { required: number; achieved: number; satisfied: boolean }>;
+  constraintStatus: Record<
+    string,
+    { required: number; achieved: number; satisfied: boolean }
+  >;
   rationale: SelectionRationale[];
   startedAt: Date | null;
   completedAt: Date | null;
@@ -1052,8 +1124,12 @@ export const cdSelectionRuns = pgTable("cd_selection_runs", {
   startedAt: timestamp("started_at", { withTimezone: true }),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   error: text("error"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 ```
 
@@ -1064,7 +1140,7 @@ export const cdSelectionRuns = pgTable("cd_selection_runs", {
 ```typescript
 export interface SelectionCandidate {
   id: UUID;
-  scores: ScoreVector;           // raw scores
+  scores: ScoreVector; // raw scores
   normalizedScores: ScoreVector; // normalized at selection time
   scenarioTypeId: UUID | null;
   riskTier: string | null;
@@ -1072,19 +1148,22 @@ export interface SelectionCandidate {
 }
 
 export interface SelectionWeights {
-  coverage: number;    // default 1.0
-  risk: number;        // default 1.0
-  novelty: number;     // default 0.8
+  coverage: number; // default 1.0
+  risk: number; // default 1.0
+  novelty: number; // default 0.8
   uncertainty: number; // default 0.6
-  drift: number;       // default 0.5
-  failure: number;     // default 0.7
-  redundancy: number;  // default 0.9 (penalty)
-  cost: number;        // default 0.3 (penalty)
+  drift: number; // default 0.5
+  failure: number; // default 0.7
+  redundancy: number; // default 0.9 (penalty)
+  cost: number; // default 0.3 (penalty)
 }
 
 export interface SelectionResult {
   selected: SelectionRationale[];
-  constraintStatus: Record<string, { required: number; achieved: number; satisfied: boolean }>;
+  constraintStatus: Record<
+    string,
+    { required: number; achieved: number; satisfied: boolean }
+  >;
   coverageImprovement: number;
 }
 
@@ -1119,6 +1198,7 @@ Marginal gain = Σ (w_i × dimension_i(c | selected)) for positive dimensions
 ```
 
 **Constraint handling:**
+
 - Per-scenario minimums: prioritize under-covered scenarios in early rounds
 - Risk tier quotas: same approach, check quotas before skipping
 - If constraints are infeasible: produce partial result + per-constraint status showing what was achieved vs. required
@@ -1138,7 +1218,10 @@ At 10k candidates with 1536-dim embeddings, loading all embeddings into memory r
 ```typescript
 export interface RedundancyOracle {
   /** Compute max cosine similarity between candidate and the selected set */
-  computeRedundancy(candidateId: UUID, selectedIds: ReadonlyArray<UUID>): Promise<number>;
+  computeRedundancy(
+    candidateId: UUID,
+    selectedIds: ReadonlyArray<UUID>
+  ): Promise<number>;
   /** Batch: compute redundancy for multiple candidates at once */
   computeRedundancyBatch(
     candidateIds: ReadonlyArray<UUID>,
@@ -1208,11 +1291,12 @@ This is more principled than the weighted sum of individual scores because it di
 
 **Sparse similarity via ANN (Submodular Optimization Research):**
 
-For facility location, pre-compute only top-K=50 nearest neighbors per item using the HNSW index. Build a reverse-neighbor index. Marginal gain computation becomes O(avg_reverse_neighbors) per step instead of O(n). Storage drops from O(n^2) to O(n * K).
+For facility location, pre-compute only top-K=50 nearest neighbors per item using the HNSW index. Build a reverse-neighbor index. Marginal gain computation becomes O(avg_reverse_neighbors) per step instead of O(n). Storage drops from O(n^2) to O(n \* K).
 
 #### 2D.3 — Label Queue & Event Integration
 
 After selection completes:
+
 1. Candidates in selection → `transitionTo("selected")` with `selectionRunId` set
 2. Emit `selection_run.completed` event with run ID and candidate count
 3. Handler in Labeling context (`onSelectionRunCompleted`):
@@ -1234,12 +1318,12 @@ app/api/v1/selection/runs/[id]/queue/route.ts → GET (label queue from this run
 
 ```typescript
 export interface SelectionQualityMetrics {
-  coverageDelta: number;        // coverage before vs. after selection
-  diversityScore: number;       // average pairwise distance between selected
+  coverageDelta: number; // coverage before vs. after selection
+  diversityScore: number; // average pairwise distance between selected
   riskCoverage: Record<string, number>; // per risk tier
   scenarioCoverage: Record<string, number>; // per scenario type
-  redundancyIndex: number;      // avg similarity between selected pairs
-  budgetUtilization: number;    // selected / budget
+  redundancyIndex: number; // avg similarity between selected pairs
+  budgetUtilization: number; // selected / budget
 }
 
 export interface SelectionEvaluator {
@@ -1263,7 +1347,12 @@ export interface CoverageReport {
   byScenarioType: { id: UUID; name: string; count: number; pct: number }[];
   byFailureMode: { id: UUID; name: string; count: number; pct: number }[];
   byRiskTier: { name: string; count: number; pct: number }[];
-  gaps: { scenarioTypeId: UUID; name: string; candidateCount: number; datasetCount: number }[];
+  gaps: {
+    scenarioTypeId: UUID;
+    name: string;
+    candidateCount: number;
+    datasetCount: number;
+  }[];
 }
 
 export interface CoverageComputer {
@@ -1361,6 +1450,7 @@ erDiagram
 ```
 
 **Removed from Phase 2 MVP (per Simplicity Review):**
+
 - `cd_embedding_models` table → config constant
 - `cd_judge_cache` table → deferred
 - `duplicate_group_id` column → redundancyPenalty score suffices
@@ -1382,9 +1472,9 @@ These must be addressed before merging any Phase 2 code:
 ```typescript
 // src/lib/api/sanitize.ts
 const SECRET_PATTERNS = [
-  /sk-[a-zA-Z0-9]{20,}/g,        // OpenAI keys
-  /Bearer\s+[^\s]+/g,             // Auth headers
-  /postgres:\/\/[^\s]+/g,         // Connection strings
+  /sk-[a-zA-Z0-9]{20,}/g, // OpenAI keys
+  /Bearer\s+[^\s]+/g, // Auth headers
+  /postgres:\/\/[^\s]+/g, // Connection strings
 ];
 
 export function sanitizeError(error: unknown): string {
@@ -1401,7 +1491,7 @@ export function sanitizeError(error: unknown): string {
 ```typescript
 export function withJobValidation<T>(
   schema: z.ZodSchema<T>,
-  handler: (data: T) => Promise<void>,
+  handler: (data: T) => Promise<void>
 ): (job: { id: string; data: unknown }) => Promise<void> {
   return async (job) => {
     const data = schema.parse(job.data);
@@ -1474,36 +1564,36 @@ export function withJobValidation<T>(
 
 ## Dependencies & Prerequisites
 
-| Dependency | Status | Impact |
-|-----------|--------|--------|
-| Phase 1 complete | ~99% done | Candidates, episodes, scenarios, labeling all work |
-| pgvector PostgreSQL extension | Install needed | `brew install pgvector` + `CREATE EXTENSION vector` |
-| pg-boss npm package | New dependency | `pg-boss@^12`, `pg@^8` |
-| OpenAI API key | Config needed | `OPENAI_API_KEY` env var |
-| Python 3.9+ with scikit-learn | Install needed | For HDBSCAN clustering subprocess |
-| p-limit, p-retry, gpt-tokenizer | New dependencies | Embedding pipeline rate limiting |
-| @datastructures-js/priority-queue | New dependency | Lazy greedy optimizer heap |
+| Dependency                        | Status           | Impact                                              |
+| --------------------------------- | ---------------- | --------------------------------------------------- |
+| Phase 1 complete                  | ~99% done        | Candidates, episodes, scenarios, labeling all work  |
+| pgvector PostgreSQL extension     | Install needed   | `brew install pgvector` + `CREATE EXTENSION vector` |
+| pg-boss npm package               | New dependency   | `pg-boss@^12`, `pg@^8`                              |
+| OpenAI API key                    | Config needed    | `OPENAI_API_KEY` env var                            |
+| Python 3.9+ with scikit-learn     | Install needed   | For HDBSCAN clustering subprocess                   |
+| p-limit, p-retry, gpt-tokenizer   | New dependencies | Embedding pipeline rate limiting                    |
+| @datastructures-js/priority-queue | New dependency   | Lazy greedy optimizer heap                          |
 
 ## Risk Analysis & Mitigation (Enhanced)
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| OpenAI API rate limits during bulk embedding | Medium | Medium | Batch with p-limit, exponential backoff, OpenAI Batch API for large jobs |
-| OpenAI API key leaked in error logs | High | High | Error sanitization utility stripping secret patterns (pre-req PR) |
-| pg-boss in Next.js environment complexity | Medium | High | Separate worker process, not in API routes; send-only client in Next.js |
-| Python subprocess injection | Low | Critical | `execFile` (no shell), absolute paths, `crypto.randomUUID()` temp files |
-| Event bus split-brain (Next.js vs. worker) | High | High | Chain jobs via pg-boss, not cross-process domain events |
-| Embedding model deprecation by OpenAI | Low | High | modelId on all embeddings; re-embedding as batch job; config constant (no registry table) |
-| Concurrent scoring/selection race conditions | Medium | High | Singleton jobs via pg-boss unique keys; optimistic concurrency on Candidate aggregate |
-| Selection engine OOM at 50k+ candidates | Medium | High | Delegate redundancy to pgvector (RedundancyOracle); no embeddings in optimizer memory |
-| HDBSCAN JSON serialization bottleneck at 100k | Medium | Medium | Consider binary format (NumPy .npy) or direct PostgreSQL access from Python |
-| HDBSCAN timeout at 100k (O(n^2) distance) | Medium | Medium | UMAP dimensionality reduction (1536 → 50 dims) before HDBSCAN; standard practice |
-| HNSW index lock during creation | Medium | High | `CREATE INDEX CONCURRENTLY` in custom migration |
-| Coverage API N+1 queries | Medium | Medium | Single `GROUP BY` + `FILTER` SQL query; composite index on (scenario_type_id, state) |
-| Unbounded API cost via repeated scoring triggers | Medium | High | Rate limiting (1/min), reject if run already active, OPENAI_DAILY_TOKEN_LIMIT |
-| `sec-fetch-site` auth bypass (pre-existing) | High | High | Fix in proxy.ts before Phase 2; do not rely on browser-only headers for auth |
-| Score normalization instability on small pools | Medium | Low | Rank-based normalization works for all pool sizes |
-| Connection pool exhaustion (3 pools) | Low | Medium | Document allocation: Drizzle 10 + pg-boss 5 + reserve 5 = 20 of 100 |
+| Risk                                             | Likelihood | Impact   | Mitigation                                                                                |
+| ------------------------------------------------ | ---------- | -------- | ----------------------------------------------------------------------------------------- |
+| OpenAI API rate limits during bulk embedding     | Medium     | Medium   | Batch with p-limit, exponential backoff, OpenAI Batch API for large jobs                  |
+| OpenAI API key leaked in error logs              | High       | High     | Error sanitization utility stripping secret patterns (pre-req PR)                         |
+| pg-boss in Next.js environment complexity        | Medium     | High     | Separate worker process, not in API routes; send-only client in Next.js                   |
+| Python subprocess injection                      | Low        | Critical | `execFile` (no shell), absolute paths, `crypto.randomUUID()` temp files                   |
+| Event bus split-brain (Next.js vs. worker)       | High       | High     | Chain jobs via pg-boss, not cross-process domain events                                   |
+| Embedding model deprecation by OpenAI            | Low        | High     | modelId on all embeddings; re-embedding as batch job; config constant (no registry table) |
+| Concurrent scoring/selection race conditions     | Medium     | High     | Singleton jobs via pg-boss unique keys; optimistic concurrency on Candidate aggregate     |
+| Selection engine OOM at 50k+ candidates          | Medium     | High     | Delegate redundancy to pgvector (RedundancyOracle); no embeddings in optimizer memory     |
+| HDBSCAN JSON serialization bottleneck at 100k    | Medium     | Medium   | Consider binary format (NumPy .npy) or direct PostgreSQL access from Python               |
+| HDBSCAN timeout at 100k (O(n^2) distance)        | Medium     | Medium   | UMAP dimensionality reduction (1536 → 50 dims) before HDBSCAN; standard practice          |
+| HNSW index lock during creation                  | Medium     | High     | `CREATE INDEX CONCURRENTLY` in custom migration                                           |
+| Coverage API N+1 queries                         | Medium     | Medium   | Single `GROUP BY` + `FILTER` SQL query; composite index on (scenario_type_id, state)      |
+| Unbounded API cost via repeated scoring triggers | Medium     | High     | Rate limiting (1/min), reject if run already active, OPENAI_DAILY_TOKEN_LIMIT             |
+| `sec-fetch-site` auth bypass (pre-existing)      | High       | High     | Fix in proxy.ts before Phase 2; do not rely on browser-only headers for auth              |
+| Score normalization instability on small pools   | Medium     | Low      | Rank-based normalization works for all pool sizes                                         |
+| Connection pool exhaustion (3 pools)             | Low        | Medium   | Document allocation: Drizzle 10 + pg-boss 5 + reserve 5 = 20 of 100                       |
 
 ## Implementation Order (Simplified — 12 PRs)
 
@@ -1519,22 +1609,23 @@ Phase 2A (Infrastructure) → Phase 2B (Scoring) → Phase 2C (Dedup/Clustering)
 
 **PR order:**
 
-| # | PR | Phase | Linear Issue(s) | Dependencies |
-|---|-----|-------|-----------------|-------------|
-| 1 | Security hardening (error sanitization, rate limiting, proxy.ts fix) | Pre-req | — | None |
-| 2 | Intelligence context scaffold + pg-boss setup + worker process | 2A.1 | GET-180 | PR 1 |
-| 3 | pgvector migration + embedding schema (`in_embeddings`) | 2A.2 | GET-180 | PR 2 |
-| 4 | Embedding pipeline + OpenAI adapter | 2A.3 | GET-180 | PR 3 |
-| 5 | FeatureSet value object + extractor | 2B.1 | — | PR 4 |
-| 6 | ScoreVector (5 dims) + dimension scorers + rank normalization | 2B.2-2B.3 | GET-183, GET-185 | PR 5 |
-| 7 | ScoringRun aggregate + API routes + incremental scoring | 2B.4-2B.7 | GET-188 | PR 6 |
-| 8 | Auto scenario mapping + centroids table | 2B.6 | GET-187 | PR 7 |
-| 9 | Semantic dedup (via redundancyPenalty) | 2C.1 | GET-181 | PR 7 |
-| 10 | HDBSCAN clustering (Python subprocess) | 2C.2 | — | PR 4 |
-| 11 | SelectionRun aggregate + greedy optimizer + label queue integration + API routes | 2D.1-2D.4 | — | PR 7, 9 |
-| 12 | Coverage API | 2E.1 | — | PR 8 |
+| #   | PR                                                                               | Phase     | Linear Issue(s)  | Dependencies |
+| --- | -------------------------------------------------------------------------------- | --------- | ---------------- | ------------ |
+| 1   | Security hardening (error sanitization, rate limiting, proxy.ts fix)             | Pre-req   | —                | None         |
+| 2   | Intelligence context scaffold + pg-boss setup + worker process                   | 2A.1      | GET-180          | PR 1         |
+| 3   | pgvector migration + embedding schema (`in_embeddings`)                          | 2A.2      | GET-180          | PR 2         |
+| 4   | Embedding pipeline + OpenAI adapter                                              | 2A.3      | GET-180          | PR 3         |
+| 5   | FeatureSet value object + extractor                                              | 2B.1      | —                | PR 4         |
+| 6   | ScoreVector (5 dims) + dimension scorers + rank normalization                    | 2B.2-2B.3 | GET-183, GET-185 | PR 5         |
+| 7   | ScoringRun aggregate + API routes + incremental scoring                          | 2B.4-2B.7 | GET-188          | PR 6         |
+| 8   | Auto scenario mapping + centroids table                                          | 2B.6      | GET-187          | PR 7         |
+| 9   | Semantic dedup (via redundancyPenalty)                                           | 2C.1      | GET-181          | PR 7         |
+| 10  | HDBSCAN clustering (Python subprocess)                                           | 2C.2      | —                | PR 4         |
+| 11  | SelectionRun aggregate + greedy optimizer + label queue integration + API routes | 2D.1-2D.4 | —                | PR 7, 9      |
+| 12  | Coverage API                                                                     | 2E.1      | —                | PR 8         |
 
 **Deferred to Phase 3 (6 tickets moved):**
+
 - GET-182: Embedding model registry table (config constant suffices)
 - GET-183: Adaptive normalization (rank-only for now — absorbed into PR 6)
 - GET-184: drift_signal dimension (needs historical baseline)
@@ -1545,6 +1636,7 @@ Phase 2A (Infrastructure) → Phase 2B (Scoring) → Phase 2C (Dedup/Clustering)
 ## References & Research
 
 ### Internal References
+
 - Candidate entity: `src/contexts/candidate/domain/entities/Candidate.ts`
 - Event bus: `src/lib/events/InProcessEventBus.ts`
 - Event registry: `src/lib/events/registry.ts`
@@ -1554,6 +1646,7 @@ Phase 2A (Infrastructure) → Phase 2B (Scoring) → Phase 2C (Dedup/Clustering)
 - PRD Phase 2 section: `PRD.md` (lines 1209-1287)
 
 ### External References
+
 - [Drizzle ORM pgvector guide](https://orm.drizzle.team/docs/guides/vector-similarity-search) — native `vector()` support, distance functions, index definitions
 - [pg-boss documentation](https://github.com/timgit/pg-boss) — v12, requires Node >=22.12, uses `pg` (not postgres.js)
 - [pg-boss deep dive (LogSnag)](https://logsnag.com/blog/deep-dive-into-background-jobs-with-pg-boss-and-typescript) — production patterns, queue configuration
@@ -1570,12 +1663,14 @@ Phase 2A (Infrastructure) → Phase 2B (Scoring) → Phase 2C (Dedup/Clustering)
 - [Next.js instrumentation.ts](https://nextjs.org/docs/app/guides/instrumentation) — send-only client warm-up, NOT for workers
 
 ### Documented Learnings
+
 - Event bus Phase 1 limitation: `docs/solutions/integration-issues/export-context-serialization-export-jobs-patterns.md`
 - Cross-context adapter pattern: `docs/solutions/integration-issues/dataset-context-versioned-suites-release-gates-patterns.md`
 - Next.js 16 + Drizzle gotchas: `docs/solutions/integration-issues/nextjs16-infrastructure-scaffolding-gotchas.md`
 - DDD implementation patterns: `docs/solutions/integration-issues/bounded-context-ddd-implementation-patterns.md`
 
 ### Linear Issues — Phase 2 MVP
+
 - GET-180: ML Infrastructure — Async Job Queue & Compute Layer
 - GET-181: Semantic deduplication engine (via redundancyPenalty dimension)
 - GET-185: failure_likelihood score dimension (merged as failureProbability)
@@ -1583,6 +1678,7 @@ Phase 2A (Infrastructure) → Phase 2B (Scoring) → Phase 2C (Dedup/Clustering)
 - GET-188: Incremental scoring pipeline (delta processing)
 
 ### Linear Issues — Deferred to Phase 3
+
 - GET-182: Embedding model registry & version tracking (config constant suffices for Phase 2)
 - GET-183: Score normalization & calibration layer (rank-only absorbed into scoring)
 - GET-184: drift_signal score dimension (needs historical baseline)

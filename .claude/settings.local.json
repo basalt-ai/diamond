@@ -81,11 +81,13 @@
       "WebFetch(domain:www.researchgate.net)",
       "WebFetch(domain:logsnag.com)",
       "WebFetch(domain:submodlib.readthedocs.io)",
-      "WebFetch(domain:arxiv.org)"
+      "WebFetch(domain:arxiv.org)",
+      "Bash(DATABASE_URL=\"postgresql://localhost/diamond\" pnpm db:migrate:*)",
+      "Bash(brew list:*)",
+      "Bash(brew install:*)",
+      "Bash(pg_config:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "supabase"
-  ]
+  "enabledMcpjsonServers": ["supabase"]
 }

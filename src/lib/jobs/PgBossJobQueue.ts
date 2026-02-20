@@ -15,15 +15,21 @@ export class PgBossJobQueue implements JobQueue {
     data: TData,
     options?: JobOptions
   ): Promise<string | null> {
-    return this.boss.send(name, data as object, {
-      retryLimit: options?.retryLimit,
-      retryDelay: options?.retryDelay,
-      retryBackoff: options?.retryBackoff,
-      expireInSeconds: options?.expireInSeconds,
-      priority: options?.priority,
-      singletonKey: options?.singletonKey,
-      startAfter: options?.startAfterSeconds,
-    });
+    const sendOptions: Record<string, unknown> = {};
+    if (options?.retryLimit != null)
+      sendOptions.retryLimit = options.retryLimit;
+    if (options?.retryDelay != null)
+      sendOptions.retryDelay = options.retryDelay;
+    if (options?.retryBackoff != null)
+      sendOptions.retryBackoff = options.retryBackoff;
+    if (options?.expireInSeconds != null)
+      sendOptions.expireInSeconds = options.expireInSeconds;
+    if (options?.priority != null) sendOptions.priority = options.priority;
+    if (options?.singletonKey != null)
+      sendOptions.singletonKey = options.singletonKey;
+    if (options?.startAfterSeconds != null)
+      sendOptions.startAfter = options.startAfterSeconds;
+    return this.boss.send(name, data as object, sendOptions);
   }
 
   async work<TData>(
@@ -31,12 +37,15 @@ export class PgBossJobQueue implements JobQueue {
     handler: JobHandler<TData>,
     options?: WorkerOptions
   ): Promise<void> {
+    const workOptions: Record<string, unknown> = {
+      batchSize: options?.batchSize ?? 1,
+    };
+    if (options?.pollingIntervalSeconds != null) {
+      workOptions.pollingIntervalSeconds = options.pollingIntervalSeconds;
+    }
     await this.boss.work<TData>(
       name,
-      {
-        batchSize: options?.batchSize ?? 1,
-        pollingIntervalSeconds: options?.pollingIntervalSeconds,
-      },
+      workOptions,
       async (jobs) => {
         for (const job of jobs) {
           await handler({ id: job.id, data: job.data });

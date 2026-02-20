@@ -6,7 +6,7 @@ export const JobPayloads = {
   }),
   "scoring.compute": z.object({
     candidateId: z.string().uuid(),
-    runId: z.string().uuid(),
+    runId: z.string(),
   }),
   "scoring_run.execute": z.object({
     runId: z.string().uuid(),

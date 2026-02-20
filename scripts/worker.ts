@@ -1,9 +1,32 @@
 import http from "node:http";
 
+import { eq } from "drizzle-orm";
 import { PgBoss } from "pg-boss";
 
+import type { DatasetReader } from "../src/contexts/intelligence/application/ports/DatasetReader";
+import type { ScenarioReader } from "../src/contexts/intelligence/application/ports/ScenarioReader";
+import { ManageEmbeddings } from "../src/contexts/intelligence/application/use-cases/ManageEmbeddings";
+import { CandidateContextAdapter } from "../src/contexts/intelligence/infrastructure/CandidateContextAdapter";
+import { CompositeScoringEngine } from "../src/contexts/intelligence/infrastructure/CompositeScoringEngine";
+import { DrizzleEmbeddingRepository } from "../src/contexts/intelligence/infrastructure/DrizzleEmbeddingRepository";
+import { EpisodeFeatureExtractor } from "../src/contexts/intelligence/infrastructure/EpisodeFeatureExtractor";
+import { IngestionContextAdapter } from "../src/contexts/intelligence/infrastructure/IngestionContextAdapter";
+import { OpenAIEmbeddingProvider } from "../src/contexts/intelligence/infrastructure/OpenAIEmbeddingProvider";
+import { EmbeddingScenarioMapper } from "../src/contexts/intelligence/infrastructure/EmbeddingScenarioMapper";
+import { PgVectorRedundancyOracle } from "../src/contexts/intelligence/infrastructure/PgVectorRedundancyOracle";
+import { CoverageGainScorer } from "../src/contexts/intelligence/infrastructure/scorers/CoverageGainScorer";
+import { FailureProbabilityScorer } from "../src/contexts/intelligence/infrastructure/scorers/FailureProbabilityScorer";
+import { NoveltyScorer } from "../src/contexts/intelligence/infrastructure/scorers/NoveltyScorer";
+import { RedundancyPenaltyScorer } from "../src/contexts/intelligence/infrastructure/scorers/RedundancyPenaltyScorer";
+import { RiskWeightScorer } from "../src/contexts/intelligence/infrastructure/scorers/RiskWeightScorer";
+import { db } from "../src/db";
+import { cdCandidates } from "../src/db/schema/candidate";
+import { sanitizeError } from "../src/lib/api/sanitize";
 import { PgBossJobQueue } from "../src/lib/jobs/PgBossJobQueue";
 import { QUEUES } from "../src/lib/jobs/queues";
+import { JobPayloads } from "../src/lib/jobs/registry";
+import { withJobValidation } from "../src/lib/jobs/validation";
+import type { UUID } from "../src/shared/types";
 
 const connectionString =
   process.env.PGBOSS_DATABASE_URL ?? process.env.DATABASE_URL;
@@ -21,6 +44,49 @@ const boss = new PgBoss({
 });
 
 boss.on("error", console.error);
+
+// ── Adapters ────────────────────────────────────────────────────
+
+const embeddingRepo = new DrizzleEmbeddingRepository(db);
+const embeddingProvider = new OpenAIEmbeddingProvider();
+const episodeReader = new IngestionContextAdapter(db);
+const candidateReader = new CandidateContextAdapter(db);
+const redundancyOracle = new PgVectorRedundancyOracle(db);
+const featureExtractor = new EpisodeFeatureExtractor();
+const scenarioMapper = new EmbeddingScenarioMapper(db);
+const manageEmbeddings = new ManageEmbeddings(
+  embeddingRepo,
+  embeddingProvider,
+  episodeReader
+);
+
+// Stub readers for scorers — return empty data until fully wired
+const scenarioReader: ScenarioReader = {
+  async findAllTypes() {
+    return [];
+  },
+  async findTypeById() {
+    return null;
+  },
+};
+const datasetReader: DatasetReader = {
+  async findCandidateIdsInCurrentDataset() {
+    return [];
+  },
+  async findCandidateSnapshotsInCurrentDataset() {
+    return [];
+  },
+};
+
+const scoringEngine = new CompositeScoringEngine([
+  new CoverageGainScorer(scenarioReader, datasetReader),
+  new RiskWeightScorer(scenarioReader),
+  new NoveltyScorer(redundancyOracle),
+  new FailureProbabilityScorer(),
+  new RedundancyPenaltyScorer(redundancyOracle),
+]);
+
+// ── Queue creation ──────────────────────────────────────────────
 
 async function createQueues(): Promise<void> {
   await boss.createQueue(QUEUES.EMBEDDING_DLQ);
@@ -67,24 +133,144 @@ async function createQueues(): Promise<void> {
   });
 }
 
-async function registerHandlers(_queue: PgBossJobQueue): Promise<void> {
-  // Handlers will be registered as each pipeline component is built.
-  // For now, this is a placeholder showing the pattern:
-  //
-  // await queue.work("embedding.compute", withJobValidation(
-  //   JobPayloads["embedding.compute"],
-  //   async (data) => { /* handler */ }
-  // ));
+// ── Handler registration ────────────────────────────────────────
+
+async function registerHandlers(queue: PgBossJobQueue): Promise<void> {
+  // embedding.compute: embed a candidate and then enqueue scoring
+  await queue.work(
+    QUEUES.EMBEDDING_COMPUTE,
+    withJobValidation(JobPayloads["embedding.compute"], async (data, jobId) => {
+      const candidateId = data.candidateId as UUID;
+      console.log(`[worker] embedding.compute ${candidateId} (job ${jobId})`);
+
+      const candidate = await candidateReader.findById(candidateId);
+      if (!candidate) {
+        console.warn(`[worker] Candidate ${candidateId} not found, skipping`);
+        return;
+      }
+
+      try {
+        await manageEmbeddings.embedCandidate(candidateId, candidate.episodeId);
+
+        // Mark candidate as embedded
+        await db
+          .update(cdCandidates)
+          .set({ embeddedAt: new Date(), updatedAt: new Date() })
+          .where(eq(cdCandidates.id, candidateId));
+
+        console.log(`[worker] Embedded ${candidateId}, enqueueing scoring`);
+
+        // Chain: enqueue scoring job
+        await boss.send(QUEUES.SCORING_COMPUTE, {
+          candidateId,
+          runId: "auto",
+        });
+      } catch (error) {
+        console.error(
+          `[worker] embedding.compute failed for ${candidateId}:`,
+          sanitizeError(error)
+        );
+        throw error; // let pg-boss retry
+      }
+    })
+  );
+
+  // scoring.compute: score a single candidate
+  await queue.work(
+    QUEUES.SCORING_COMPUTE,
+    withJobValidation(JobPayloads["scoring.compute"], async (data, jobId) => {
+      const candidateId = data.candidateId as UUID;
+      console.log(`[worker] scoring.compute ${candidateId} (job ${jobId})`);
+
+      const candidate = await candidateReader.findById(candidateId);
+      if (!candidate) {
+        console.warn(`[worker] Candidate ${candidateId} not found, skipping`);
+        return;
+      }
+
+      const episode = await episodeReader.findById(candidate.episodeId);
+      if (!episode) {
+        console.warn(
+          `[worker] Episode ${candidate.episodeId} not found, skipping`
+        );
+        return;
+      }
+
+      const embedding = await embeddingRepo.findByCandidateId(candidateId);
+      if (!embedding) {
+        console.warn(
+          `[worker] Embedding not found for ${candidateId}, skipping`
+        );
+        return;
+      }
+
+      try {
+        // Auto-map scenario if unmapped
+        let scenarioTypeId = candidate.scenarioTypeId;
+        let mappingConfidence = candidate.scenarioTypeId ? 1.0 : 0;
+
+        if (!scenarioTypeId) {
+          const mapping = await scenarioMapper.map(
+            candidateId,
+            embedding.embedding
+          );
+          if (mapping) {
+            scenarioTypeId = mapping.scenarioTypeId;
+            mappingConfidence = mapping.confidence;
+          }
+        }
+
+        const features = featureExtractor.extract(episode);
+
+        const scores = await scoringEngine.score({
+          candidateId,
+          episodeId: candidate.episodeId,
+          features,
+          embedding: embedding.embedding,
+          scenarioTypeId,
+          mappingConfidence,
+        });
+
+        // Update candidate with scores, features, mapping, and transition to scored
+        await db
+          .update(cdCandidates)
+          .set({
+            scores,
+            features,
+            scenarioTypeId,
+            mappingConfidence,
+            scoringDirty: false,
+            state: "scored",
+            updatedAt: new Date(),
+          })
+          .where(eq(cdCandidates.id, candidateId));
+
+        console.log(
+          `[worker] Scored ${candidateId}: ${JSON.stringify(scores)}`
+        );
+      } catch (error) {
+        console.error(
+          `[worker] scoring.compute failed for ${candidateId}:`,
+          sanitizeError(error)
+        );
+        throw error;
+      }
+    })
+  );
+
   console.log(
-    "[worker] No handlers registered yet — add them as pipeline components are built"
+    "[worker] Handlers registered: embedding.compute, scoring.compute"
   );
 }
 
-// Health endpoint
+// ── Health endpoint ─────────────────────────────────────────────
+
 const healthServer = http.createServer((_req, res) => {
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(JSON.stringify({ status: "ok", queues: Object.values(QUEUES) }));
 });
+
+// ── Main ────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
   console.log("[worker] Starting pg-boss...");
