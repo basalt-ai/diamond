@@ -19,6 +19,7 @@ import {
 import { generateId } from "@/shared/ids";
 
 import { ApiError } from "./errors";
+import { sanitizeError } from "./sanitize";
 
 type RouteContext = { params: Promise<Record<string, string>> };
 type RouteHandler = (req: NextRequest, ctx: RouteContext) => Promise<Response>;
@@ -83,7 +84,7 @@ export function withApiMiddleware(handler: RouteHandler): RouteHandler {
         return errorResponse(422, error.code, error.message, requestId);
       }
 
-      console.error(`[${requestId}] Unhandled error:`, error);
+      console.error(`[${requestId}] Unhandled error:`, sanitizeError(error));
       return errorResponse(
         500,
         "INTERNAL_ERROR",

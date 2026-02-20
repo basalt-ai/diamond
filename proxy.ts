@@ -13,10 +13,12 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Skip auth for same-origin browser requests (SPA frontend)
-  const secFetchSite = request.headers.get("sec-fetch-site");
-  if (secFetchSite === "same-origin") {
-    return NextResponse.next();
+  // In development, skip auth for same-origin browser requests
+  if (process.env.NODE_ENV === "development") {
+    const secFetchSite = request.headers.get("sec-fetch-site");
+    if (secFetchSite === "same-origin") {
+      return NextResponse.next();
+    }
   }
 
   const authorization = request.headers.get("authorization") ?? "";
