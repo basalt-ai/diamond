@@ -27,6 +27,57 @@ export class ComputeVersionDiff {
     const removed = [...idsB].filter((id) => !idsA.has(id));
     const unchanged = [...idsA].filter((id) => idsB.has(id));
 
+    // Build scenario breakdown from lineage if available
+    const scenarioBreakdown = {
+      added: {} as Record<string, number>,
+      removed: {} as Record<string, number>,
+      changed: {} as Record<string, number>,
+    };
+
+    const buildCandidateScenarioMap = (
+      lineage: unknown
+    ): Map<string, string> => {
+      const map = new Map<string, string>();
+      if (lineage && typeof lineage === "object") {
+        const l = lineage as {
+          candidates?: Array<{
+            candidate_id?: string;
+            scenario_type_id?: string;
+          }>;
+        };
+        if (l.candidates) {
+          for (const c of l.candidates) {
+            if (c.candidate_id && c.scenario_type_id) {
+              map.set(c.candidate_id, c.scenario_type_id);
+            }
+          }
+        }
+      }
+      return map;
+    };
+
+    const scenarioMapA = buildCandidateScenarioMap(versionA.lineage);
+    const scenarioMapB = buildCandidateScenarioMap(versionB.lineage);
+
+    for (const id of added) {
+      const scenario = scenarioMapA.get(id) ?? "unknown";
+      scenarioBreakdown.added[scenario] =
+        (scenarioBreakdown.added[scenario] ?? 0) + 1;
+    }
+
+    for (const id of removed) {
+      const scenario = scenarioMapB.get(id) ?? "unknown";
+      scenarioBreakdown.removed[scenario] =
+        (scenarioBreakdown.removed[scenario] ?? 0) + 1;
+    }
+
+    // changed detection requires label hashes — leave empty for now
+    const changed: Array<{
+      candidateId: string;
+      previousLabelHash: string;
+      currentLabelHash: string;
+    }> = [];
+
     return {
       version_a: {
         id: versionA.id,
@@ -41,8 +92,12 @@ export class ComputeVersionDiff {
       added_count: added.length,
       removed_count: removed.length,
       unchanged_count: unchanged.length,
+      changed_count: changed.length,
+      net_delta: added.length - removed.length,
       added_candidate_ids: added,
       removed_candidate_ids: removed,
+      changed,
+      scenario_breakdown: scenarioBreakdown,
     };
   }
 }
