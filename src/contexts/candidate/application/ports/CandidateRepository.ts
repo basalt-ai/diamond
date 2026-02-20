@@ -34,4 +34,17 @@ export interface CandidateRepository {
   updateState(id: UUID, state: CandidateState): Promise<CandidateData>;
 
   findByEpisodeId(episodeId: UUID): Promise<CandidateData | null>;
+
+  updateWithScoring(
+    id: UUID,
+    data: {
+      state: CandidateState;
+      scores: Record<string, unknown>;
+      features: Record<string, unknown>;
+      scenarioTypeId: UUID | null;
+      mappingConfidence: number;
+    }
+  ): Promise<void>;
+
+  updateEmbedding(id: UUID, embeddedAt: Date): Promise<void>;
 }

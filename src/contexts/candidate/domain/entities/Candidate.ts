@@ -103,6 +103,35 @@ export class Candidate extends AggregateRoot {
     return this._updatedAt;
   }
 
+  applyScoring(params: {
+    scores: Record<string, unknown>;
+    features: Record<string, unknown>;
+    scenarioTypeId: UUID | null;
+    mappingConfidence: number;
+  }): "transitioned" | "rescored" | "skipped" {
+    if (this._state === "scored") {
+      this._scores = params.scores;
+      this._features = params.features;
+      this._scenarioTypeId = params.scenarioTypeId ?? this._scenarioTypeId;
+      this._mappingConfidence = params.mappingConfidence;
+      this._scoringDirty = false;
+      this._updatedAt = new Date();
+      return "rescored";
+    }
+
+    if (this._state !== "raw") {
+      return "skipped";
+    }
+
+    this._scores = params.scores;
+    this._features = params.features;
+    this._scenarioTypeId = params.scenarioTypeId ?? this._scenarioTypeId;
+    this._mappingConfidence = params.mappingConfidence;
+    this._scoringDirty = false;
+    this.transitionTo("scored");
+    return "transitioned";
+  }
+
   markEmbedded(): void {
     this._embeddedAt = new Date();
     this._updatedAt = new Date();

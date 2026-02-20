@@ -79,6 +79,38 @@ export class ManageCandidates {
     return this.repo.list(filter, page, pageSize);
   }
 
+  async applyScoring(
+    id: UUID,
+    params: {
+      scores: Record<string, unknown>;
+      features: Record<string, unknown>;
+      scenarioTypeId: UUID | null;
+      mappingConfidence: number;
+    }
+  ): Promise<void> {
+    const data = await this.repo.findById(id);
+    if (!data) throw new NotFoundError("Candidate", id);
+
+    const candidate = new Candidate(data);
+    const result = candidate.applyScoring(params);
+
+    if (result === "skipped") return;
+
+    await this.repo.updateWithScoring(id, {
+      state: candidate.state,
+      scores: candidate.scores,
+      features: candidate.features,
+      scenarioTypeId: candidate.scenarioTypeId,
+      mappingConfidence: candidate.mappingConfidence,
+    });
+
+    await eventBus.publishAll(candidate.domainEvents);
+  }
+
+  async applyEmbedding(id: UUID): Promise<void> {
+    await this.repo.updateEmbedding(id, new Date());
+  }
+
   async transition(
     id: UUID,
     targetState: CandidateState

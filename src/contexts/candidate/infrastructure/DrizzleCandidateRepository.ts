@@ -2,6 +2,7 @@ import { and, count, desc, eq } from "drizzle-orm";
 
 import type { Database } from "@/db";
 import { cdCandidates } from "@/db/schema/candidate";
+import { NotFoundError } from "@/lib/domain/DomainError";
 import { generateId } from "@/shared/ids";
 import type { UUID } from "@/shared/types";
 
@@ -88,6 +89,41 @@ export class DrizzleCandidateRepository implements CandidateRepository {
       .where(eq(cdCandidates.id, id))
       .returning();
     return row as CandidateData;
+  }
+
+  async updateWithScoring(
+    id: UUID,
+    data: {
+      state: CandidateState;
+      scores: Record<string, unknown>;
+      features: Record<string, unknown>;
+      scenarioTypeId: UUID | null;
+      mappingConfidence: number;
+    }
+  ): Promise<void> {
+    const rows = await this.db
+      .update(cdCandidates)
+      .set({
+        state: data.state,
+        scores: data.scores,
+        features: data.features,
+        scenarioTypeId: data.scenarioTypeId,
+        mappingConfidence: data.mappingConfidence,
+        scoringDirty: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(cdCandidates.id, id))
+      .returning({ id: cdCandidates.id });
+    if (rows.length === 0) throw new NotFoundError("Candidate", id);
+  }
+
+  async updateEmbedding(id: UUID, embeddedAt: Date): Promise<void> {
+    const rows = await this.db
+      .update(cdCandidates)
+      .set({ embeddedAt, updatedAt: new Date() })
+      .where(eq(cdCandidates.id, id))
+      .returning({ id: cdCandidates.id });
+    if (rows.length === 0) throw new NotFoundError("Candidate", id);
   }
 
   async findByEpisodeId(episodeId: UUID): Promise<CandidateData | null> {

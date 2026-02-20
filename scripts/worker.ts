@@ -1,8 +1,9 @@
 import http from "node:http";
 
-import { eq, isNull, sql } from "drizzle-orm";
+import { isNull, sql } from "drizzle-orm";
 import { PgBoss } from "pg-boss";
 
+import { manageCandidates } from "../src/contexts/candidate";
 import type { DatasetReader } from "../src/contexts/intelligence/application/ports/DatasetReader";
 import type { ScenarioReader } from "../src/contexts/intelligence/application/ports/ScenarioReader";
 import { ManageEmbeddings } from "../src/contexts/intelligence/application/use-cases/ManageEmbeddings";
@@ -22,10 +23,12 @@ import { RiskWeightScorer } from "../src/contexts/intelligence/infrastructure/sc
 import { db } from "../src/db";
 import { cdCandidates } from "../src/db/schema/candidate";
 import { sanitizeError } from "../src/lib/api/sanitize";
+import { NotFoundError } from "../src/lib/domain/DomainError";
 import { PgBossJobQueue } from "../src/lib/jobs/PgBossJobQueue";
 import { QUEUES } from "../src/lib/jobs/queues";
 import { JobPayloads } from "../src/lib/jobs/registry";
 import { withJobValidation } from "../src/lib/jobs/validation";
+import "../src/lib/events/registry";
 import type { UUID } from "../src/shared/types";
 
 const connectionString =
@@ -153,18 +156,16 @@ async function registerHandlers(queue: PgBossJobQueue): Promise<void> {
         await manageEmbeddings.embedCandidate(candidateId, candidate.episodeId);
 
         // Mark candidate as embedded
-        await db
-          .update(cdCandidates)
-          .set({ embeddedAt: new Date(), updatedAt: new Date() })
-          .where(eq(cdCandidates.id, candidateId));
+        await manageCandidates.applyEmbedding(candidateId);
 
         console.log(`[worker] Embedded ${candidateId}, enqueueing scoring`);
 
         // Chain: enqueue scoring job
-        await boss.send(QUEUES.SCORING_COMPUTE, {
-          candidateId,
-          runId: "auto",
-        });
+        await boss.send(
+          QUEUES.SCORING_COMPUTE,
+          { candidateId, runId: "auto" },
+          { singletonKey: `score-${candidateId}` }
+        );
       } catch (error) {
         console.error(
           `[worker] embedding.compute failed for ${candidateId}:`,
@@ -231,19 +232,13 @@ async function registerHandlers(queue: PgBossJobQueue): Promise<void> {
           mappingConfidence,
         });
 
-        // Update candidate with scores, features, mapping, and transition to scored
-        await db
-          .update(cdCandidates)
-          .set({
-            scores,
-            features,
-            scenarioTypeId,
-            mappingConfidence,
-            scoringDirty: false,
-            state: "scored",
-            updatedAt: new Date(),
-          })
-          .where(eq(cdCandidates.id, candidateId));
+        // Update candidate through domain — validates state machine, publishes events
+        await manageCandidates.applyScoring(candidateId, {
+          scores,
+          features,
+          scenarioTypeId,
+          mappingConfidence,
+        });
 
         console.log(
           `[worker] Scored ${candidateId}: ${JSON.stringify(scores)}`
