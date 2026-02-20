@@ -1,6 +1,6 @@
 import http from "node:http";
 
-import { eq } from "drizzle-orm";
+import { eq, isNull, sql } from "drizzle-orm";
 import { PgBoss } from "pg-boss";
 
 import type { DatasetReader } from "../src/contexts/intelligence/application/ports/DatasetReader";
@@ -9,10 +9,10 @@ import { ManageEmbeddings } from "../src/contexts/intelligence/application/use-c
 import { CandidateContextAdapter } from "../src/contexts/intelligence/infrastructure/CandidateContextAdapter";
 import { CompositeScoringEngine } from "../src/contexts/intelligence/infrastructure/CompositeScoringEngine";
 import { DrizzleEmbeddingRepository } from "../src/contexts/intelligence/infrastructure/DrizzleEmbeddingRepository";
+import { EmbeddingScenarioMapper } from "../src/contexts/intelligence/infrastructure/EmbeddingScenarioMapper";
 import { EpisodeFeatureExtractor } from "../src/contexts/intelligence/infrastructure/EpisodeFeatureExtractor";
 import { IngestionContextAdapter } from "../src/contexts/intelligence/infrastructure/IngestionContextAdapter";
 import { OpenAIEmbeddingProvider } from "../src/contexts/intelligence/infrastructure/OpenAIEmbeddingProvider";
-import { EmbeddingScenarioMapper } from "../src/contexts/intelligence/infrastructure/EmbeddingScenarioMapper";
 import { PgVectorRedundancyOracle } from "../src/contexts/intelligence/infrastructure/PgVectorRedundancyOracle";
 import { CoverageGainScorer } from "../src/contexts/intelligence/infrastructure/scorers/CoverageGainScorer";
 import { FailureProbabilityScorer } from "../src/contexts/intelligence/infrastructure/scorers/FailureProbabilityScorer";
@@ -248,6 +248,17 @@ async function registerHandlers(queue: PgBossJobQueue): Promise<void> {
         console.log(
           `[worker] Scored ${candidateId}: ${JSON.stringify(scores)}`
         );
+
+        // Debounced clustering: enqueue with singleton key + 30s delay
+        // pg-boss deduplicates — only one cluster.detect runs at a time
+        await boss.send(
+          QUEUES.CLUSTER_DETECT,
+          { minClusterSize: 5 },
+          {
+            singletonKey: "auto-cluster",
+            startAfter: 30, // seconds — debounce window
+          }
+        );
       } catch (error) {
         console.error(
           `[worker] scoring.compute failed for ${candidateId}:`,
@@ -258,8 +269,49 @@ async function registerHandlers(queue: PgBossJobQueue): Promise<void> {
     })
   );
 
+  // cluster.detect: run HDBSCAN on unmapped candidates, then auto-induce scenarios
+  await queue.work(
+    QUEUES.CLUSTER_DETECT,
+    withJobValidation(JobPayloads["cluster.detect"], async (data, jobId) => {
+      console.log(`[worker] cluster.detect (job ${jobId})`);
+
+      // Check unmapped candidate count
+      const rows = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(cdCandidates)
+        .where(isNull(cdCandidates.scenarioTypeId));
+      const count = rows[0]?.count ?? 0;
+
+      const MIN_UNMAPPED = 15;
+      if (count < MIN_UNMAPPED) {
+        console.log(
+          `[worker] Only ${count} unmapped candidates (need ${MIN_UNMAPPED}), skipping clustering`
+        );
+        return;
+      }
+
+      try {
+        const { manageClusteringRuns } =
+          await import("../src/contexts/intelligence");
+        const result = await manageClusteringRuns.create({
+          minClusterSize: data.minClusterSize ?? 5,
+          triggeredBy: "worker:auto",
+        });
+
+        console.log(
+          `[worker] Clustering run ${result.id}: ${result.clusterCount} clusters, ${result.noiseCount} noise, state=${result.state}`
+        );
+
+        // Induction is auto-triggered by clustering_run.completed event handler
+      } catch (error) {
+        console.error(`[worker] cluster.detect failed:`, sanitizeError(error));
+        throw error;
+      }
+    })
+  );
+
   console.log(
-    "[worker] Handlers registered: embedding.compute, scoring.compute"
+    "[worker] Handlers registered: embedding.compute, scoring.compute, cluster.detect"
   );
 }
 
