@@ -886,14 +886,246 @@ function DriftTab({ versionId }: { versionId: string }) {
   );
 }
 
-function LineageTab({ _versionId }: { _versionId: string }) {
+// ---------------------------------------------------------------------------
+// Lineage types
+// ---------------------------------------------------------------------------
+
+interface LineageCandidate {
+  candidate_id: string;
+  episode_id: string;
+  scenario_type_id?: string;
+  label_task_ids: string[];
+  rubric_version?: number;
+}
+
+interface LineageResponse {
+  scenario_graph_version: string;
+  candidate_count: number;
+  captured_at: string;
+  candidates: {
+    data: LineageCandidate[];
+    pagination: {
+      total: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+    };
+  };
+}
+
+function CopyButton({ text }: { text: string }) {
   return (
-    <Card>
-      <CardContent className="py-12 text-center">
-        <GitBranchIcon className="mx-auto mb-2 size-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Coming soon</p>
-      </CardContent>
-    </Card>
+    <button
+      type="button"
+      className="ml-1 text-muted-foreground hover:text-foreground"
+      onClick={() => {
+        navigator.clipboard.writeText(text).then(() => toast.success("Copied"));
+      }}
+    >
+      <span className="sr-only">Copy</span>
+      <svg
+        className="size-3"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <rect x="5" y="5" width="9" height="9" rx="1" />
+        <path d="M3 11V3a1 1 0 0 1 1-1h8" />
+      </svg>
+    </button>
+  );
+}
+
+function LineageTab({ versionId }: { versionId: string }) {
+  const [lineagePage, setLineagePage] = useState(1);
+  const [candidateSearch, setCandidateSearch] = useState("");
+
+  const searchPath = candidateSearch.trim()
+    ? `/dataset-versions/${versionId}/lineage?candidate_id=${candidateSearch.trim()}`
+    : `/dataset-versions/${versionId}/lineage?page=${lineagePage}&page_size=50`;
+
+  const { data, isLoading, error } = useApi<LineageResponse | LineageCandidate>(
+    searchPath
+  );
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <EmptyState
+        icon={GitBranchIcon}
+        title="No lineage data"
+        description="Lineage information is not available for this version."
+      />
+    );
+  }
+
+  if (!data) return null;
+
+  // Single candidate drill-down
+  const isSingleCandidate = "candidate_id" in data;
+
+  return (
+    <div className="space-y-4">
+      {/* Search bar */}
+      <div className="flex items-center gap-2">
+        <Input
+          placeholder="Search by candidate ID..."
+          value={candidateSearch}
+          onChange={(e) => setCandidateSearch(e.target.value)}
+          className="max-w-sm font-mono text-xs"
+        />
+        {candidateSearch.trim() && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCandidateSearch("")}
+          >
+            Clear
+          </Button>
+        )}
+      </div>
+
+      {isSingleCandidate ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Candidate Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-xs">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Candidate ID</span>
+              <span className="font-mono">
+                {data.candidate_id}
+                <CopyButton text={data.candidate_id} />
+              </span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Episode ID</span>
+              <span className="font-mono">
+                {data.episode_id}
+                <CopyButton text={data.episode_id} />
+              </span>
+            </div>
+            {data.scenario_type_id && (
+              <>
+                <Separator />
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Scenario Type</span>
+                  <span>{data.scenario_type_id}</span>
+                </div>
+              </>
+            )}
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Label Tasks</span>
+              <span>
+                <Badge variant="secondary">
+                  {data.label_task_ids.length}
+                </Badge>
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Header info */}
+          {"scenario_graph_version" in data && (
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span>
+                Graph: <strong>{data.scenario_graph_version}</strong>
+              </span>
+              <span>
+                Candidates: <strong>{data.candidate_count}</strong>
+              </span>
+              <span>Captured: {new Date(data.captured_at).toLocaleDateString()}</span>
+            </div>
+          )}
+
+          {/* Candidates table */}
+          {"candidates" in data && (
+            <>
+              <Card>
+                <CardContent className="p-0">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="px-4 py-2 font-medium">Candidate ID</th>
+                        <th className="px-4 py-2 font-medium">Episode ID</th>
+                        <th className="px-4 py-2 font-medium">Scenario</th>
+                        <th className="px-4 py-2 font-medium">Labels</th>
+                        <th className="px-4 py-2 font-medium">Rubric</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.candidates.data.map((c) => (
+                        <tr key={c.candidate_id} className="border-b">
+                          <td className="px-4 py-2 font-mono">
+                            {truncateId(c.candidate_id)}
+                            <CopyButton text={c.candidate_id} />
+                          </td>
+                          <td className="px-4 py-2 font-mono">
+                            {truncateId(c.episode_id)}
+                            <CopyButton text={c.episode_id} />
+                          </td>
+                          <td className="px-4 py-2">
+                            {c.scenario_type_id ?? "\u2014"}
+                          </td>
+                          <td className="px-4 py-2">
+                            <Badge variant="secondary">
+                              {c.label_task_ids.length}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-2">
+                            {c.rubric_version ?? "\u2014"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+
+              {/* Simple pagination */}
+              <div className="flex items-center justify-between px-2">
+                <p className="text-xs text-muted-foreground">
+                  Page {data.candidates.pagination.page} of{" "}
+                  {data.candidates.pagination.totalPages}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={lineagePage <= 1}
+                    onClick={() => setLineagePage((p) => p - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      lineagePage >= data.candidates.pagination.totalPages
+                    }
+                    onClick={() => setLineagePage((p) => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -1061,7 +1293,7 @@ function VersionDetailContent() {
           <DriftTab versionId={params.id} />
         </TabsContent>
         <TabsContent value="lineage">
-          <LineageTab _versionId={params.id} />
+          <LineageTab versionId={params.id} />
         </TabsContent>
         <TabsContent value="slices">
           <SlicesTab _versionId={params.id} />
