@@ -1,7 +1,7 @@
 ---
 title: "Phase 3 Frontend — Quality & Governance Dashboard"
 type: feat
-status: active
+status: completed
 date: 2026-02-20
 ---
 
@@ -80,9 +80,9 @@ Also update `src/lib/api-client.ts` to expose HTTP status code alongside data, s
 
 **Acceptance criteria:**
 
-- [ ] `useApi(path, { pollInterval: 5000 })` polls every 5s
-- [ ] Polling stops when component unmounts
-- [ ] API client returns `{ data, status }` shape
+- [x] `useApi(path, { pollInterval: 5000 })` polls every 5s
+- [x] Polling stops when component unmounts
+- [x] API client returns `{ data, status }` shape
 
 ### 1-2: Refactor version detail page to use Tabs
 
@@ -103,10 +103,10 @@ Keep all existing functionality in the Overview tab. Other tabs are stubs initia
 
 **Acceptance criteria:**
 
-- [ ] 5 tabs rendered, Overview active by default
-- [ ] All existing functionality preserved in Overview tab
-- [ ] Tab state persisted in URL query param `?tab=quality`
-- [ ] Other tabs show "Coming soon" placeholder
+- [x] 5 tabs rendered, Overview active by default
+- [x] All existing functionality preserved in Overview tab
+- [x] Tab state persisted in URL query param `?tab=quality`
+- [x] Other tabs show "Coming soon" placeholder
 
 ### 1-3: Diagnostics report visualization (Quality tab)
 
@@ -147,12 +147,12 @@ Optional sections (shown only if data exists):
 
 **Acceptance criteria:**
 
-- [ ] Diagnostics KPI row with 4 metrics
-- [ ] Per-scenario kappa bar chart using recharts `BarChart`
-- [ ] Gate results table with pass/fail/blocking indicators
-- [ ] 202 computing state with polling
-- [ ] Optional sections hidden when data is absent
-- [ ] `EmptyState` for draft versions
+- [x] Diagnostics KPI row with 4 metrics
+- [x] Per-scenario kappa bar chart using recharts `BarChart`
+- [x] Gate results table with pass/fail/blocking indicators
+- [x] 202 computing state with polling
+- [x] Optional sections hidden when data is absent
+- [x] `EmptyState` for draft versions
 
 ### 1-4: Gate results structured display
 
@@ -169,9 +169,9 @@ Each `GateResult` row shows:
 
 **Acceptance criteria:**
 
-- [ ] Gate results table replaces JSON viewer
-- [ ] Color-coded pass/fail with blocking distinction
-- [ ] Backward compatible with old GateResult format (no blocking/scope fields)
+- [x] Gate results table replaces JSON viewer
+- [x] Color-coded pass/fail with blocking distinction
+- [x] Backward compatible with old GateResult format (no blocking/scope fields)
 
 ---
 
@@ -217,12 +217,12 @@ Stale scenarios table:
 
 **Acceptance criteria:**
 
-- [ ] Days selector (dropdown: 7, 14, 30, 60, 90)
-- [ ] JSD KPI with severity badge
-- [ ] Grouped bar chart comparing distributions
-- [ ] Stale scenarios table with recommendations
-- [ ] Loading state with skeleton
-- [ ] Empty state for no-candidate versions
+- [x] Days selector (dropdown: 7, 14, 30, 60, 90)
+- [x] JSD KPI with severity badge
+- [x] Grouped bar chart comparing distributions
+- [x] Stale scenarios table with recommendations
+- [x] Loading state with skeleton
+- [x] Empty state for no-candidate versions
 
 ### 2-2: Lineage explorer (Lineage tab)
 
@@ -247,10 +247,10 @@ Support `?candidate_id=X` drill-down via a search input above the table.
 
 **Acceptance criteria:**
 
-- [ ] Structured table replacing JSON blob
-- [ ] Pagination with existing `Pagination` component
-- [ ] Candidate search/drill-down
-- [ ] Copy-to-clipboard for IDs
+- [x] Structured table replacing JSON blob
+- [x] Pagination with existing `Pagination` component
+- [x] Candidate search/drill-down
+- [x] Copy-to-clipboard for IDs
 
 ### 2-3: Enhanced diff page
 
@@ -277,10 +277,10 @@ Candidate lists (collapsible):
 
 **Acceptance criteria:**
 
-- [ ] Summary badges for added/removed/changed/unchanged
-- [ ] Scenario breakdown table
-- [ ] Collapsible candidate ID lists
-- [ ] Backward compatible with old diff format (no `changed`, no `scenario_breakdown`)
+- [x] Summary badges for added/removed/changed/unchanged
+- [x] Scenario breakdown table
+- [x] Collapsible candidate ID lists
+- [x] Backward compatible with old diff format (no `changed`, no `scenario_breakdown`)
 
 ---
 
@@ -332,13 +332,13 @@ Fields:
 
 **Acceptance criteria:**
 
-- [ ] Gate policies table on suite detail page
-- [ ] Create dialog with metric/comparison/scope selectors
-- [ ] Edit dialog pre-populated with current values
-- [ ] Delete with confirmation
-- [ ] Enabled toggle inline (uses `PUT` to update)
-- [ ] Toast feedback for all mutations
-- [ ] Max 20 policy limit shown in UI
+- [x] Gate policies table on suite detail page
+- [x] Create dialog with metric/comparison/scope selectors
+- [x] Edit dialog pre-populated with current values
+- [x] Delete with confirmation
+- [x] Enabled toggle inline (uses `PUT` to update)
+- [x] Toast feedback for all mutations
+- [x] Max 20 policy limit shown in UI
 
 ### 3-2: Slices with golden toggle (Slices tab on version detail)
 
@@ -365,11 +365,11 @@ Golden toggle: Click star icon →
 
 **Acceptance criteria:**
 
-- [ ] Slices table on version detail Slices tab
-- [ ] Golden toggle with star icon
-- [ ] Unlock requires confirmation dialog
-- [ ] Stale candidate count shown when > 0
-- [ ] Toast feedback for toggle
+- [x] Slices table on version detail Slices tab
+- [x] Golden toggle with star icon
+- [x] Unlock requires confirmation dialog
+- [x] Stale candidate count shown when > 0
+- [x] Toast feedback for toggle
 
 ---
 
@@ -409,12 +409,12 @@ Empty state: "No eval results found. Ingest results from your CI pipeline."
 
 **Acceptance criteria:**
 
-- [ ] Paginated eval runs table
-- [ ] Filters for version, model name, model version
-- [ ] Pass rate with color coding
-- [ ] Link to failure analysis per version
-- [ ] Empty state
-- [ ] Pagination
+- [x] Paginated eval runs table
+- [x] Filters for version, model name, model version
+- [x] Pass rate with color coding
+- [x] Link to failure analysis per version
+- [x] Empty state
+- [x] Pagination
 
 ### 4-2: Failure analysis page
 
@@ -456,11 +456,11 @@ Pass rate matrix: heatmap or table
 
 **Acceptance criteria:**
 
-- [ ] Summary KPI row with 5 classification counts
-- [ ] Scenario classifications table with badges and trend arrows
-- [ ] Pass rate sparklines or heatmap
-- [ ] Insufficient eval runs empty state
-- [ ] Link back to eval results listing
+- [x] Summary KPI row with 5 classification counts
+- [x] Scenario classifications table with badges and trend arrows
+- [x] Pass rate sparklines or heatmap
+- [x] Insufficient eval runs empty state
+- [x] Link back to eval results listing
 
 ### 4-3: Update sidebar navigation
 
@@ -482,10 +482,10 @@ Update the Datasets nav item to include sub-navigation:
 
 **Acceptance criteria:**
 
-- [ ] Datasets has expandable sub-navigation
-- [ ] "Suites" links to `/datasets`
-- [ ] "Eval Results" links to `/datasets/eval-results`
-- [ ] Active state highlights correctly
+- [x] Datasets has expandable sub-navigation
+- [x] "Suites" links to `/datasets`
+- [x] "Eval Results" links to `/datasets/eval-results`
+- [x] Active state highlights correctly
 
 ---
 
@@ -493,33 +493,33 @@ Update the Datasets nav item to include sub-navigation:
 
 ### Functional Requirements
 
-- [ ] Version detail page has 5 tabs: Overview, Quality, Drift, Lineage, Slices
-- [ ] Diagnostics visualization with KPI cards, kappa bar chart, gate results table
-- [ ] 202 computing state with polling and progress indicator
-- [ ] Drift analysis with grouped bar chart and stale scenarios table
-- [ ] Lineage as paginated table with candidate search
-- [ ] Enhanced diff with summary badges and scenario breakdown
-- [ ] Gate policies CRUD on suite detail page
-- [ ] Golden slice toggle with confirmation for unlock
-- [ ] Eval results listing page with filters and pagination
-- [ ] Failure analysis with classification badges and trend indicators
-- [ ] Sidebar updated with Datasets sub-navigation
+- [x] Version detail page has 5 tabs: Overview, Quality, Drift, Lineage, Slices
+- [x] Diagnostics visualization with KPI cards, kappa bar chart, gate results table
+- [x] 202 computing state with polling and progress indicator
+- [x] Drift analysis with grouped bar chart and stale scenarios table
+- [x] Lineage as paginated table with candidate search
+- [x] Enhanced diff with summary badges and scenario breakdown
+- [x] Gate policies CRUD on suite detail page
+- [x] Golden slice toggle with confirmation for unlock
+- [x] Eval results listing page with filters and pagination
+- [x] Failure analysis with classification badges and trend indicators
+- [x] Sidebar updated with Datasets sub-navigation
 
 ### Non-Functional Requirements
 
-- [ ] All pages follow existing `"use client"` + `useApi` + `useMutation` patterns
-- [ ] All charts use recharts wrapped in `ChartContainer` with `ChartConfig`
-- [ ] Loading states use `Skeleton` components
-- [ ] Empty states use `EmptyState` component
-- [ ] Error feedback via `toast.error()`
-- [ ] Responsive: 2-column grid at `md:` breakpoint, single column on mobile
+- [x] All pages follow existing `"use client"` + `useApi` + `useMutation` patterns
+- [x] All charts use recharts wrapped in `ChartContainer` with `ChartConfig`
+- [x] Loading states use `Skeleton` components
+- [x] Empty states use `EmptyState` component
+- [x] Error feedback via `toast.error()`
+- [x] Responsive: 2-column grid at `md:` breakpoint, single column on mobile
 
 ### Quality Gates
 
-- [ ] `npx tsc --noEmit` passes with 0 errors
-- [ ] `pnpm lint` passes
-- [ ] All new types defined inline (no separate type files)
-- [ ] No new dependencies added (recharts + shadcn already available)
+- [x] `npx tsc --noEmit` passes with 0 errors
+- [x] `pnpm lint` passes
+- [x] All new types defined inline (no separate type files)
+- [x] No new dependencies added (recharts + shadcn already available)
 
 ## Dependency Graph
 
