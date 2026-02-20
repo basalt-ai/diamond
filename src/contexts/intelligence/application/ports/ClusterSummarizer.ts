@@ -7,5 +7,5 @@ export interface ClusterSummary {
 }
 
 export interface ClusterSummarizer {
-  summarize(representativeEpisodeIds: UUID[]): Promise<ClusterSummary>;
+  summarize(representativeCandidateIds: UUID[]): Promise<ClusterSummary>;
 }

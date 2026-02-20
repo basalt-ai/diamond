@@ -1,6 +1,9 @@
+import { inArray } from "drizzle-orm";
 import OpenAI from "openai";
 import { z } from "zod";
 
+import type { Database } from "@/db";
+import { cdCandidates } from "@/db/schema/candidate";
 import type { UUID } from "@/shared/types";
 
 import type {
@@ -32,6 +35,7 @@ export class LlmClusterSummarizer implements ClusterSummarizer {
   private readonly model: string;
 
   constructor(
+    private readonly db: Database,
     private readonly episodeReader: EpisodeReader,
     options?: { model?: string }
   ) {
@@ -39,10 +43,20 @@ export class LlmClusterSummarizer implements ClusterSummarizer {
     this.model = options?.model ?? "gpt-4o-mini";
   }
 
-  async summarize(representativeEpisodeIds: UUID[]): Promise<ClusterSummary> {
-    const episodes = await this.episodeReader.findByIds(
-      representativeEpisodeIds
-    );
+  async summarize(representativeCandidateIds: UUID[]): Promise<ClusterSummary> {
+    // Resolve candidate IDs → episode IDs
+    const rows = await this.db
+      .select({ episodeId: cdCandidates.episodeId })
+      .from(cdCandidates)
+      .where(inArray(cdCandidates.id, representativeCandidateIds));
+
+    const episodeIds = rows.map((r) => r.episodeId).filter(Boolean) as UUID[];
+
+    if (episodeIds.length === 0) {
+      return { ...FALLBACK_SUMMARY };
+    }
+
+    const episodes = await this.episodeReader.findByIds(episodeIds);
 
     if (episodes.size === 0) {
       return { ...FALLBACK_SUMMARY };

@@ -34,7 +34,7 @@ const episodeReader = new IngestionContextAdapter();
 const scenarioTypeCreator = new ScenarioContextAdapter();
 const candidateMapper = new CandidateContextAdapter(db);
 const clusterSummarizer = process.env.OPENAI_API_KEY
-  ? new LlmClusterSummarizer(episodeReader)
+  ? new LlmClusterSummarizer(db, episodeReader)
   : null;
 
 // Use cases
