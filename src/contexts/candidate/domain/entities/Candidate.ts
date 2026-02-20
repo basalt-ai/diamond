@@ -136,6 +136,7 @@ export class Candidate extends AggregateRoot {
       candidate_id: this.id,
       from_state: fromState,
       to_state: targetState,
+      scenario_type_id: this._scenarioTypeId,
     });
   }
 

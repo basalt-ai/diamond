@@ -46,6 +46,9 @@ export class ManageLabelTasks {
     if (candidate.state !== "selected") {
       throw new DuplicateError("LabelTask", "candidate_id", candidateId);
     }
+    if (!candidate.scenario_type_id) {
+      throw new NotFoundError("ScenarioType", candidateId);
+    }
 
     // Fetch rubric to pin version
     const rubric = await this.rubricReader.getLatestVersion(rubricId);

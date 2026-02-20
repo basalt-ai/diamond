@@ -9,8 +9,8 @@ import { ScenarioContextAdapter } from "./infrastructure/ScenarioContextAdapter"
 
 const labelTaskRepo = new DrizzleLabelTaskRepository(db);
 const labelRepo = new DrizzleLabelRepository(db);
-const rubricReader = new ScenarioContextAdapter();
-const candidateReader = new CandidateContextAdapter();
+export const rubricReader = new ScenarioContextAdapter();
+export const candidateReader = new CandidateContextAdapter();
 
 export const manageLabelTasks = new ManageLabelTasks(
   labelTaskRepo,

@@ -15,6 +15,7 @@ export type CandidateStateChangedPayload = {
   candidate_id: string;
   from_state: string;
   to_state: string;
+  scenario_type_id: string | null;
 };
 
 export type CandidateStateChangedEvent = TypedDomainEvent<

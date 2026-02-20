@@ -9,4 +9,8 @@ export interface RubricReader {
   getLatestVersion(
     rubricId: UUID
   ): Promise<{ id: UUID; version: number } | null>;
+
+  getLatestForScenarioType(
+    scenarioTypeId: UUID
+  ): Promise<{ id: UUID; version: number } | null>;
 }

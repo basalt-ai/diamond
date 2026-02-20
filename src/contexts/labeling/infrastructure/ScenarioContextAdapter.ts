@@ -34,4 +34,18 @@ export class ScenarioContextAdapter implements RubricReader {
       throw error;
     }
   }
+
+  async getLatestForScenarioType(
+    scenarioTypeId: UUID
+  ): Promise<{ id: UUID; version: number } | null> {
+    try {
+      const rubrics = await manageRubrics.getEffectiveRubrics(scenarioTypeId);
+      if (rubrics.length === 0) return null;
+      const rubric = rubrics[0]!;
+      return { id: rubric.id, version: rubric.version };
+    } catch (error) {
+      if (error instanceof NotFoundError) return null;
+      throw error;
+    }
+  }
 }
