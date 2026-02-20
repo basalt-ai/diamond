@@ -46,6 +46,7 @@ export const manageClusteringRuns = new ManageClusteringRuns(
   clusterSummarizer
 );
 export const induceScenarios = new InduceScenarios(
+  db,
   clusteringRunRepo,
   scenarioTypeCreator,
   candidateMapper,
