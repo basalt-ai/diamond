@@ -106,6 +106,7 @@ export default function ScenarioTypeDetailPage() {
   const params = useParams<{ id: string }>();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingRubric, setEditingRubric] = useState<Rubric | null>(null);
   const [criteria, setCriteria] = useState<CriterionForm[]>([
     { ...EMPTY_CRITERION },
   ]);
@@ -123,7 +124,9 @@ export default function ScenarioTypeDetailPage() {
 
   const { mutate, isPending } = useMutation("POST", "/rubrics", {
     onSuccess: () => {
-      toast.success("Rubric created");
+      toast.success(
+        editingRubric ? "New rubric version created" : "Rubric created"
+      );
       setDialogOpen(false);
       resetForm();
       refetch();
@@ -136,6 +139,26 @@ export default function ScenarioTypeDetailPage() {
   function resetForm() {
     setCriteria([{ ...EMPTY_CRITERION }]);
     setExamples([]);
+    setEditingRubric(null);
+  }
+
+  function openRubric(rubric: Rubric) {
+    setEditingRubric(rubric);
+    setCriteria(
+      rubric.criteria.map((c) => ({
+        name: c.name,
+        description: c.description,
+        weight: String(c.weight),
+      }))
+    );
+    setExamples(
+      rubric.examples.map((ex) => ({
+        input: ex.input,
+        expectedOutput: ex.expectedOutput,
+        explanation: ex.explanation,
+      }))
+    );
+    setDialogOpen(true);
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -270,6 +293,7 @@ export default function ScenarioTypeDetailPage() {
           columns={rubricColumns}
           data={rubrics ?? []}
           isLoading={rubricsLoading}
+          onRowClick={openRubric}
           emptyState={
             <EmptyState
               icon={BookOpenIcon}
@@ -289,9 +313,15 @@ export default function ScenarioTypeDetailPage() {
       >
         <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create Rubric</DialogTitle>
+            <DialogTitle>
+              {editingRubric
+                ? `Edit Rubric v${String(editingRubric.version)}`
+                : "Create Rubric"}
+            </DialogTitle>
             <DialogDescription>
-              Define criteria and optional examples for this rubric version.
+              {editingRubric
+                ? "Saving will create a new version of this rubric."
+                : "Define criteria and optional examples for this rubric version."}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -462,7 +492,11 @@ export default function ScenarioTypeDetailPage() {
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending ? "Creating..." : "Create Rubric"}
+                {isPending
+                  ? "Saving..."
+                  : editingRubric
+                    ? "Save as New Version"
+                    : "Create Rubric"}
               </Button>
             </DialogFooter>
           </form>

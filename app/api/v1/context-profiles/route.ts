@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { manageContextProfiles } from "@/contexts/scenario";
 import { withApiMiddleware } from "@/lib/api/middleware";
-import { created, ok } from "@/lib/api/response";
+import { created, paginated } from "@/lib/api/response";
 import { parseBody } from "@/lib/api/validate";
 
 const createSchema = z.object({
@@ -19,5 +19,5 @@ export const POST = withApiMiddleware(async (req: NextRequest) => {
 
 export const GET = withApiMiddleware(async () => {
   const result = await manageContextProfiles.list();
-  return ok(result);
+  return paginated(result, result.length, 1, result.length || 20);
 });

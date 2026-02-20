@@ -94,9 +94,17 @@
       "Bash(pnpm ls:*)",
       "Bash(pip3 install:*)",
       "Bash(DATABASE_URL=\"postgresql://localhost:5432/diamond\" pnpm db:seed:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "WebFetch(domain:ui.shadcn.com)",
+      "Bash(pnpm dlx shadcn@latest add chart:*)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "WebFetch(domain:lilianweng.github.io)",
+      "WebFetch(domain:real-statistics.com)",
+      "Bash(wc:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["supabase"]
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }

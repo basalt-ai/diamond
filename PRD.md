@@ -357,8 +357,8 @@ Each bounded context follows hexagonal architecture. **Inbound ports** define wh
 - Score vectors are recomputed when the Scenario Graph version changes
 - Selection runs are versioned and reproducible (parameters + input snapshot → deterministic output)
 
-**Emits events:** `CandidateCreated`, `CandidateScored`, `CandidateSelected`, `SelectionRunCompleted`, `UnmappedClusterDetected`
-**Consumes events:** `EpisodeIngested` (from Ingestion), `ScenarioGraphUpdated` (from Scenario), `LabelFinalized` (from Labeling)
+**Emits events:** `candidate.created`, `candidate.state_changed`, `candidate.scored`, `selection_run.completed`, `cluster.unmapped_detected`
+**Consumes events:** `episode.ingested` (from Ingestion), `scenario_graph.updated` (from Scenario), `label_task.finalized` (from Labeling)
 
 ---
 
@@ -382,8 +382,8 @@ Each bounded context follows hexagonal architecture. **Inbound ports** define wh
 - Labels are append-only; edits create new label versions
 - Disagreement is measured continuously; adjudication triggers when agreement drops below threshold per scenario slice
 
-**Emits events:** `LabelTaskCreated`, `LabelSubmitted`, `AdjudicationTriggered`, `LabelFinalized`
-**Consumes events:** `SelectionRunCompleted` (from Candidate), `RubricVersionCreated` (from Scenario — informational, does not retroactively change pinned tasks)
+**Emits events:** `label_task.created`, `label.submitted`, `adjudication.triggered`, `label_task.finalized`
+**Consumes events:** `candidate.state_changed` (from Candidate — auto-creates label tasks when candidates reach `selected`), `rubric.version_created` (from Scenario — auto-creates label tasks for already-selected candidates)
 
 ---
 
@@ -509,13 +509,13 @@ _Consumer: Candidate context — triggers re-scoring of candidates whose scenari
 
 **`rubric.version_created`** — A new version of a rubric has been published.
 
-| Payload Field      | Type    | Description                            |
-| ------------------ | ------- | -------------------------------------- |
-| `rubricId`         | UUID    | The rubric                             |
-| `scenarioTypeId`   | UUID    | The scenario this rubric belongs to    |
-| `previousVersion`  | integer | Old version number (null if first)     |
-| `newVersion`       | integer | New version number                     |
-| `changeSummary`    | string  | Human-readable summary of what changed |
+| Payload Field     | Type    | Description                            |
+| ----------------- | ------- | -------------------------------------- |
+| `rubricId`        | UUID    | The rubric                             |
+| `scenarioTypeId`  | UUID    | The scenario this rubric belongs to    |
+| `previousVersion` | integer | Old version number (null if first)     |
+| `newVersion`      | integer | New version number                     |
+| `changeSummary`   | string  | Human-readable summary of what changed |
 
 _Consumer: Labeling context — informational. In-progress tasks keep their pinned version. New tasks use the latest._
 
@@ -525,11 +525,23 @@ _Consumer: Labeling context — informational. In-progress tasks keep their pinn
 
 **`candidate.created`** — A new candidate has been created from an episode.
 
-| Payload Field  | Type   | Description                |
-| -------------- | ------ | -------------------------- |
-| `candidate_id` | UUID   | The new candidate          |
-| `episode_id`   | UUID   | Source episode             |
-| `state`        | string | Always `"raw"` at creation |
+| Payload Field      | Type   | Description                |
+| ------------------ | ------ | -------------------------- |
+| `candidate_id`     | UUID   | The new candidate          |
+| `episode_id`       | UUID   | Source episode             |
+| `scenario_type_id` | UUID?  | Mapped scenario type       |
+| `state`            | string | Always `"raw"` at creation |
+
+**`candidate.state_changed`** — A candidate has transitioned between states.
+
+| Payload Field      | Type   | Description                        |
+| ------------------ | ------ | ---------------------------------- |
+| `candidate_id`     | UUID   | The candidate                      |
+| `from_state`       | string | Previous state                     |
+| `to_state`         | string | New state                          |
+| `scenario_type_id` | UUID?  | Mapped scenario (null if unmapped) |
+
+_Consumer: Labeling context — when `to_state` is `"selected"`, auto-creates a LabelTask if a rubric exists for the scenario type._
 
 **`candidate.scored`** — A candidate's score vector has been computed or updated (Phase 2).
 
@@ -1110,12 +1122,14 @@ Each Candidate carries a score vector computed by the Scoring Engine:
 
 ### 6.2 Domain Events Wired
 
-| Event                    | Producer  | Consumer   | Effect                                     |
-| ------------------------ | --------- | ---------- | ------------------------------------------ |
-| `EpisodeIngested`        | Ingestion | Candidate  | Creates a Candidate in `raw` state         |
-| `BulkImportCompleted`    | Ingestion | (internal) | Summary event after batch import completes |
-| `LabelFinalized`         | Labeling  | Candidate  | Transitions candidate to `labeled`         |
-| `DatasetVersionReleased` | Dataset   | Export     | Triggers default export jobs               |
+| Event                      | Producer  | Consumer   | Effect                                                    |
+| -------------------------- | --------- | ---------- | --------------------------------------------------------- |
+| `episode.ingested`         | Ingestion | Candidate  | Creates a Candidate in `raw` state                        |
+| `bulk_import.completed`    | Ingestion | (internal) | Summary event after batch import completes                |
+| `candidate.state_changed`  | Candidate | Labeling   | Auto-creates label task when candidate reaches `selected` |
+| `rubric.version_created`   | Scenario  | Labeling   | Auto-creates label tasks for already-selected candidates  |
+| `label_task.finalized`     | Labeling  | Candidate  | Transitions candidate to `labeled`                        |
+| `dataset_version.released` | Dataset   | Export     | Triggers default export jobs                              |
 
 ### 6.3 What Gets Deferred
 

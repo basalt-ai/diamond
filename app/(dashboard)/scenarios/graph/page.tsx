@@ -1,6 +1,11 @@
 "use client";
 
-import { ChevronDownIcon, ChevronRightIcon, NetworkIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  InfoIcon,
+  NetworkIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 import {
@@ -17,6 +22,7 @@ import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -36,6 +42,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useApi } from "@/hooks/use-api";
 
 // ---------------------------------------------------------------------------
@@ -177,6 +189,22 @@ const radarConfig: ChartConfig = {
 // Components
 // ---------------------------------------------------------------------------
 
+function InfoHint({ text }: { text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <InfoIcon className="size-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{text}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 function SeverityBadge({ severity }: { severity: string }) {
   const variant =
     severity === "critical" || severity === "high"
@@ -248,26 +276,32 @@ function TreeNodeRow({
           {node.name}
         </Link>
 
-        <Badge
-          variant="outline"
-          className="shrink-0"
-          style={{
-            borderColor: getCategoryColor(node.riskTier.category),
-            color: getCategoryColor(node.riskTier.category),
-          }}
-        >
-          {node.riskTier.name}
-        </Badge>
+        <Link href="/scenarios/risk-tiers">
+          <Badge
+            variant="outline"
+            className="shrink-0"
+            style={{
+              borderColor: getCategoryColor(node.riskTier.category),
+              color: getCategoryColor(node.riskTier.category),
+            }}
+          >
+            {node.riskTier.name}
+          </Badge>
+        </Link>
 
         {node.failureModes.length > 0 && (
-          <Badge variant="secondary" className="shrink-0">
-            {node.failureModes.length} FM
-          </Badge>
+          <Link href="/scenarios/failure-modes">
+            <Badge variant="secondary" className="shrink-0">
+              {node.failureModes.length} FM
+            </Badge>
+          </Link>
         )}
         {node.contextProfiles.length > 0 && (
-          <Badge variant="secondary" className="shrink-0">
-            {node.contextProfiles.length} CP
-          </Badge>
+          <Link href="/scenarios/context-profiles">
+            <Badge variant="secondary" className="shrink-0">
+              {node.contextProfiles.length} CP
+            </Badge>
+          </Link>
         )}
         {node.rubricIds.length > 0 && (
           <Badge variant="secondary" className="shrink-0">
@@ -285,12 +319,22 @@ function TreeNodeRow({
               style={{ paddingLeft: `${(depth + 1) * 20 + 28}px` }}
             >
               <p className="text-muted-foreground text-[10px] font-medium uppercase tracking-wide mb-1">
-                Failure Modes
+                <Link
+                  href="/scenarios/failure-modes"
+                  className="hover:underline"
+                >
+                  Failure Modes
+                </Link>
               </p>
               <div className="flex flex-wrap gap-1">
                 {node.failureModes.map((fm) => (
                   <span key={fm.id} className="flex items-center gap-1">
-                    <span className="text-xs">{fm.name}</span>
+                    <Link
+                      href="/scenarios/failure-modes"
+                      className="text-xs hover:underline"
+                    >
+                      {fm.name}
+                    </Link>
                     <SeverityBadge severity={fm.severity} />
                   </span>
                 ))}
@@ -303,13 +347,18 @@ function TreeNodeRow({
               style={{ paddingLeft: `${(depth + 1) * 20 + 28}px` }}
             >
               <p className="text-muted-foreground text-[10px] font-medium uppercase tracking-wide mb-1">
-                Context Profiles
+                <Link
+                  href="/scenarios/context-profiles"
+                  className="hover:underline"
+                >
+                  Context Profiles
+                </Link>
               </p>
               <div className="flex flex-wrap gap-1">
                 {node.contextProfiles.map((cp) => (
-                  <Badge key={cp.id} variant="outline">
-                    {cp.name}
-                  </Badge>
+                  <Link key={cp.id} href="/scenarios/context-profiles">
+                    <Badge variant="outline">{cp.name}</Badge>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -427,185 +476,199 @@ function GraphContent() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">Scenario Graph</h1>
-          <p className="text-xs text-muted-foreground">
-            Visualize your scenario taxonomy
-          </p>
-        </div>
-        <Select
-          value={selectedVersion ?? "current"}
-          onValueChange={handleVersionChange}
-        >
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Version" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="current">
-              Latest (v{graphData.version})
-            </SelectItem>
-            {(versionsData?.data ?? []).map((v) => (
-              <SelectItem key={v.id} value={String(v.version)}>
-                v{v.version} &mdash;{" "}
-                {new Date(v.createdAt).toLocaleDateString()}
+    <TooltipProvider>
+      <div className="space-y-6 p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold">Scenario Graph</h1>
+            <p className="text-xs text-muted-foreground">
+              Visualize your scenario taxonomy
+            </p>
+          </div>
+          <Select
+            value={selectedVersion ?? "current"}
+            onValueChange={handleVersionChange}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Version" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="current">
+                Latest (v{graphData.version})
               </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+              {(versionsData?.data ?? []).map((v) => (
+                <SelectItem key={v.id} value={String(v.version)}>
+                  v{v.version} &mdash;{" "}
+                  {new Date(v.createdAt).toLocaleDateString()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Radar chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Coverage Profile</CardTitle>
-            <CardDescription>
-              Per-scenario-type coverage across dimensions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={radarConfig} className="h-64 w-full">
-              <RadarChart data={radarData}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="name" tick={{ fontSize: 10 }} />
-                <PolarRadiusAxis tick={{ fontSize: 9 }} />
-                <Radar
-                  dataKey="failureModes"
-                  stroke="var(--color-failureModes)"
-                  fill="var(--color-failureModes)"
-                  fillOpacity={0.2}
-                />
-                <Radar
-                  dataKey="contextProfiles"
-                  stroke="var(--color-contextProfiles)"
-                  fill="var(--color-contextProfiles)"
-                  fillOpacity={0.2}
-                />
-                <Radar
-                  dataKey="rubrics"
-                  stroke="var(--color-rubrics)"
-                  fill="var(--color-rubrics)"
-                  fillOpacity={0.2}
-                />
-                <Radar
-                  dataKey="riskWeight"
-                  stroke="var(--color-riskWeight)"
-                  fill="var(--color-riskWeight)"
-                  fillOpacity={0.2}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-              </RadarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Radial bar chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Risk Tier Distribution</CardTitle>
-            <CardDescription>
-              Scenario types by risk tier category
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={radialConfig} className="h-64 w-full">
-              <RadialBarChart
-                data={radialData}
-                innerRadius={30}
-                outerRadius={110}
-              >
-                <PolarAngleAxis
-                  type="number"
-                  domain={[0, "auto"]}
-                  tick={false}
-                />
-                <RadialBar dataKey="count" background />
-                <ChartTooltip
-                  content={<ChartTooltipContent nameKey="category" />}
-                />
-              </RadialBarChart>
-            </ChartContainer>
-            <div className="flex flex-wrap justify-center gap-3 pt-2">
-              {radialData.map((d) => (
-                <div key={d.category} className="flex items-center gap-1.5">
-                  <div
-                    className="size-2.5 rounded-sm"
-                    style={{ backgroundColor: d.fill }}
+        {/* Charts */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {/* Radar chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Coverage Profile</CardTitle>
+              <CardDescription>
+                Per-scenario-type coverage across dimensions
+              </CardDescription>
+              <CardAction>
+                <InfoHint text="Each axis represents a dimension (failure modes, context profiles, rubrics, risk weight). Larger shapes indicate broader coverage across dimensions." />
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={radarConfig} className="h-64 w-full">
+                <RadarChart data={radarData}>
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <PolarRadiusAxis tick={{ fontSize: 9 }} />
+                  <Radar
+                    dataKey="failureModes"
+                    stroke="var(--color-failureModes)"
+                    fill="var(--color-failureModes)"
+                    fillOpacity={0.2}
                   />
-                  <span className="text-xs capitalize">{d.category}</span>
-                  <span className="text-muted-foreground text-xs">
-                    ({d.count})
-                  </span>
-                </div>
+                  <Radar
+                    dataKey="contextProfiles"
+                    stroke="var(--color-contextProfiles)"
+                    fill="var(--color-contextProfiles)"
+                    fillOpacity={0.2}
+                  />
+                  <Radar
+                    dataKey="rubrics"
+                    stroke="var(--color-rubrics)"
+                    fill="var(--color-rubrics)"
+                    fillOpacity={0.2}
+                  />
+                  <Radar
+                    dataKey="riskWeight"
+                    stroke="var(--color-riskWeight)"
+                    fill="var(--color-riskWeight)"
+                    fillOpacity={0.2}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                </RadarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+
+          {/* Radial bar chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Risk Tier Distribution</CardTitle>
+              <CardDescription>
+                Scenario types by risk tier category
+              </CardDescription>
+              <CardAction>
+                <InfoHint text="Shows how scenario types are distributed across risk tier categories. Longer bars indicate more scenario types in that category." />
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={radialConfig} className="h-64 w-full">
+                <RadialBarChart
+                  data={radialData}
+                  innerRadius={30}
+                  outerRadius={110}
+                >
+                  <PolarAngleAxis
+                    type="number"
+                    domain={[0, "auto"]}
+                    tick={false}
+                  />
+                  <RadialBar dataKey="count" background />
+                  <ChartTooltip
+                    content={<ChartTooltipContent nameKey="category" />}
+                  />
+                </RadialBarChart>
+              </ChartContainer>
+              <div className="flex flex-wrap justify-center gap-3 pt-2">
+                {radialData.map((d) => (
+                  <div key={d.category} className="flex items-center gap-1.5">
+                    <div
+                      className="size-2.5 rounded-sm"
+                      style={{ backgroundColor: d.fill }}
+                    />
+                    <span className="text-xs capitalize">{d.category}</span>
+                    <span className="text-muted-foreground text-xs">
+                      ({d.count})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Taxonomy Tree */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Taxonomy Tree</CardTitle>
+            <CardDescription>
+              {graphData.snapshot.scenarioTypes.length} scenario types
+            </CardDescription>
+            <CardAction>
+              <InfoHint text="Hierarchical view of scenario types. Click the chevron to expand and see failure modes, context profiles, and children. Click the name to view details." />
+            </CardAction>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="border-t">
+              {tree.map((node) => (
+                <TreeNodeRow
+                  key={node.id}
+                  node={node}
+                  depth={0}
+                  expanded={expanded}
+                  onToggle={handleToggle}
+                />
               ))}
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Taxonomy Tree */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Taxonomy Tree</CardTitle>
-          <CardDescription>
-            {graphData.snapshot.scenarioTypes.length} scenario types
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="border-t">
-            {tree.map((node) => (
-              <TreeNodeRow
-                key={node.id}
-                node={node}
-                depth={0}
-                expanded={expanded}
-                onToggle={handleToggle}
-              />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Changelog */}
-      {graphData.changes.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Changelog (v{graphData.version})</CardTitle>
-            <CardDescription>
-              {graphData.changes.length} changes in this version
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="px-4 py-2 font-medium">Change</th>
-                  <th className="px-4 py-2 font-medium">Entity</th>
-                  <th className="px-4 py-2 font-medium">Summary</th>
-                </tr>
-              </thead>
-              <tbody>
-                {graphData.changes.map((change, i) => (
-                  <tr key={`${change.entityId}-${i}`} className="border-b">
-                    <td className="px-4 py-2">
-                      <ChangeTypeBadge type={change.changeType} />
-                    </td>
-                    <td className="text-muted-foreground px-4 py-2">
-                      {change.entityType}
-                    </td>
-                    <td className="px-4 py-2">{change.summary}</td>
+        {/* Changelog */}
+        {graphData.changes.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Changelog (v{graphData.version})</CardTitle>
+              <CardDescription>
+                {graphData.changes.length} changes in this version
+              </CardDescription>
+              <CardAction>
+                <InfoHint text="Lists all additions, modifications, removals, and archival changes recorded in this graph version." />
+              </CardAction>
+            </CardHeader>
+            <CardContent className="p-0">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="px-4 py-2 font-medium">Change</th>
+                    <th className="px-4 py-2 font-medium">Entity</th>
+                    <th className="px-4 py-2 font-medium">Summary</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+                </thead>
+                <tbody>
+                  {graphData.changes.map((change, i) => (
+                    <tr key={`${change.entityId}-${i}`} className="border-b">
+                      <td className="px-4 py-2">
+                        <ChangeTypeBadge type={change.changeType} />
+                      </td>
+                      <td className="text-muted-foreground px-4 py-2">
+                        {change.entityType}
+                      </td>
+                      <td className="px-4 py-2">{change.summary}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }
 
