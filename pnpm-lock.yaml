@@ -17,6 +17,9 @@ importers:
       '@base-ui/react':
         specifier: 1.2.0
         version: 1.2.0(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@datastructures-js/priority-queue':
+        specifier: 6.3.5
+        version: 6.3.5
       '@supabase/supabase-js':
         specifier: 2.97.0
         version: 2.97.0
@@ -464,6 +467,12 @@ packages:
 
   '@clack/prompts@1.0.1':
     resolution: {integrity: sha512-/42G73JkuYdyWZ6m8d/CJtBrGl1Hegyc7Fy78m5Ob+jF85TOUmLR5XLce/U3LxYAw0kJ8CT5aI99RIvPHcGp/Q==}
+
+  '@datastructures-js/heap@4.3.7':
+    resolution: {integrity: sha512-Dx4un7Uj0dVxkfoq4RkpzsY2OrvNJgQYZ3n3UlGdl88RxxdHd7oTi21/l3zoxUUe0sXFuNUrfmWqlHzqnoN6Ug==}
+
+  '@datastructures-js/priority-queue@6.3.5':
+    resolution: {integrity: sha512-NmdmvLnkUyG67W6Iy8tP+865ILq5VDyZh90c8lHMOkYYydUNzOV0QNPCRAuj4AoHSm/V2DeuYvDKnvALaCwLvA==}
 
   '@dotenvx/dotenvx@1.52.0':
     resolution: {integrity: sha512-CaQcc8JvtzQhUSm9877b6V4Tb7HCotkcyud9X2YwdqtQKwgljkMRwU96fVYKnzN3V0Hj74oP7Es+vZ0mS+Aa1w==}
@@ -5178,6 +5187,12 @@ snapshots:
       '@clack/core': 1.0.1
       picocolors: 1.1.1
       sisteransi: 1.0.5
+
+  '@datastructures-js/heap@4.3.7': {}
+
+  '@datastructures-js/priority-queue@6.3.5':
+    dependencies:
+      '@datastructures-js/heap': 4.3.7
 
   '@dotenvx/dotenvx@1.52.0':
     dependencies:
