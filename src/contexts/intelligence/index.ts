@@ -7,6 +7,7 @@ import { DrizzleScoringRunRepository } from "./infrastructure/DrizzleScoringRunR
 import { DrizzleSelectionRunRepository } from "./infrastructure/DrizzleSelectionRunRepository";
 import { OpenAIEmbeddingProvider } from "./infrastructure/OpenAIEmbeddingProvider";
 import { PgVectorRedundancyOracle } from "./infrastructure/PgVectorRedundancyOracle";
+import { SqlCoverageComputer } from "./infrastructure/SqlCoverageComputer";
 
 // Repositories
 const embeddingRepo = new DrizzleEmbeddingRepository(db);
@@ -16,6 +17,7 @@ const selectionRunRepo = new DrizzleSelectionRunRepository(db);
 // Infrastructure adapters
 const embeddingProvider = new OpenAIEmbeddingProvider();
 const redundancyOracle = new PgVectorRedundancyOracle(db);
+const coverageComputer = new SqlCoverageComputer(db);
 
 // Use cases
 export const manageScoringRuns = new ManageScoringRuns(scoringRunRepo);
@@ -27,4 +29,5 @@ export {
   scoringRunRepo,
   selectionRunRepo,
   redundancyOracle,
+  coverageComputer,
 };
