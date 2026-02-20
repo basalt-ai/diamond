@@ -249,14 +249,13 @@ async function registerHandlers(queue: PgBossJobQueue): Promise<void> {
           `[worker] Scored ${candidateId}: ${JSON.stringify(scores)}`
         );
 
-        // Debounced clustering: enqueue with singleton key + 30s delay
-        // pg-boss deduplicates — only one cluster.detect runs at a time
+        // Debounced clustering: singleton ensures only one job per 60s window
         await boss.send(
           QUEUES.CLUSTER_DETECT,
           { minClusterSize: 5 },
           {
             singletonKey: "auto-cluster",
-            startAfter: 30, // seconds — debounce window
+            singletonSeconds: 60,
           }
         );
       } catch (error) {

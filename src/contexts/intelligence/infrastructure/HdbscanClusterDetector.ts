@@ -6,10 +6,7 @@ import { sql } from "drizzle-orm";
 import type { Database } from "@/db";
 import { sanitizeError } from "@/lib/api/sanitize";
 
-const SCRIPT_PATH = path.resolve(
-  import.meta.dirname ?? __dirname,
-  "../../../scripts/cluster.py"
-);
+const SCRIPT_PATH = path.resolve(process.cwd(), "scripts/cluster.py");
 
 interface ClusterResult {
   clusters: Array<{
