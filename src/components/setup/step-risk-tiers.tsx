@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApi } from "@/hooks/use-api";
 import { useMutation } from "@/hooks/use-mutation";
+import type { PaginatedResponse } from "@/lib/api-client";
 
 import type { StepProps } from "./types";
 
@@ -34,7 +35,8 @@ export function StepRiskTiers({
   onBack,
   onReadinessChange,
 }: StepProps) {
-  const { data, isLoading, refetch } = useApi<RiskTier[]>("/risk-tiers");
+  const { data, isLoading, refetch } =
+    useApi<PaginatedResponse<RiskTier>>("/risk-tiers");
 
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
@@ -92,7 +94,7 @@ export function StepRiskTiers({
     createTier({ name, weight: Number(weight), category });
   }
 
-  const tiers = data ?? [];
+  const tiers = data?.data ?? [];
   const canProceed = tiers.length > 0;
 
   return (

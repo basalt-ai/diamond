@@ -47,7 +47,8 @@ export function StepScenarioType({
     refetch,
   } = useApi<PaginatedResponse<ScenarioType>>("/scenario-types?page_size=100");
 
-  const { data: tiersData } = useApi<RiskTier[]>("/risk-tiers");
+  const { data: tiersData } =
+    useApi<PaginatedResponse<RiskTier>>("/risk-tiers");
 
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
@@ -80,7 +81,7 @@ export function StepScenarioType({
   }
 
   const types = typesData?.data ?? [];
-  const tiers = tiersData ?? [];
+  const tiers = tiersData?.data ?? [];
   const canProceed = types.length > 0;
 
   // Auto-select first risk tier when available

@@ -37,7 +37,8 @@ interface FailureMode {
 }
 
 function RiskTiersTab() {
-  const { data, isLoading, refetch } = useApi<RiskTier[]>("/risk-tiers");
+  const { data, isLoading, refetch } =
+    useApi<PaginatedResponse<RiskTier>>("/risk-tiers");
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [weight, setWeight] = useState("0.5");
@@ -54,7 +55,7 @@ function RiskTiersTab() {
     onError: (err) => toast.error(err.message),
   });
 
-  const tiers = data ?? [];
+  const tiers = data?.data ?? [];
 
   return (
     <Card>
