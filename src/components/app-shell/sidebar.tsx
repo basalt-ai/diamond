@@ -6,6 +6,7 @@ import {
   LayoutDashboardIcon,
   NetworkIcon,
   PlayIcon,
+  SettingsIcon,
   TagIcon,
   UploadIcon,
   UsersIcon,
@@ -91,6 +92,12 @@ const navigation: NavItem[] = [
     title: "Exports",
     href: "/exports",
     icon: DownloadIcon,
+  },
+  {
+    title: "Settings",
+    href: "/settings",
+    icon: SettingsIcon,
+    children: [{ title: "Reference Data", href: "/settings/reference-data" }],
   },
 ];
 

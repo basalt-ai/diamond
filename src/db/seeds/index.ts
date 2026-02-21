@@ -1,8 +1,10 @@
+import { seedFailureModes } from "./failure-modes";
 import { seedRiskTiers } from "./risk-tiers";
 
 async function main() {
   console.log("Running seeds...");
   await seedRiskTiers();
+  await seedFailureModes();
   console.log("Seeds complete.");
   process.exit(0);
 }

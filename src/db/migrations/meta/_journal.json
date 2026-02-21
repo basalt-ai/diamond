@@ -5,29 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1771545323247,
+      "when": 1771631746760,
       "tag": "0000_init",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1771553575253,
-      "tag": "0001_vengeful_bloodscream",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1771605126470,
-      "tag": "0002_omniscient_randall",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1771608663492,
-      "tag": "0003_aberrant_elektra",
+      "when": 1771633072297,
+      "tag": "0001_mute_arachne",
       "breakpoints": true
     }
   ]
