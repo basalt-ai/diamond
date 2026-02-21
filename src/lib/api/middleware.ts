@@ -10,6 +10,7 @@ import {
   ConcurrencyConflictError,
   ReferenceIntegrityError,
 } from "@/contexts/scenario/domain/errors";
+import { auth } from "@/lib/auth";
 import {
   NotFoundError,
   InvalidStateTransitionError,
@@ -21,8 +22,19 @@ import { generateId } from "@/shared/ids";
 import { ApiError } from "./errors";
 import { sanitizeError } from "./sanitize";
 
+export interface AuthenticatedUser {
+  id: string;
+  email: string;
+  name: string;
+}
+
 type RouteContext = { params: Promise<Record<string, string>> };
 type RouteHandler = (req: NextRequest, ctx: RouteContext) => Promise<Response>;
+type AuthedRouteHandler = (
+  req: NextRequest,
+  ctx: RouteContext,
+  user: AuthenticatedUser
+) => Promise<Response>;
 
 function errorResponse(
   statusCode: number,
@@ -93,4 +105,43 @@ export function withApiMiddleware(handler: RouteHandler): RouteHandler {
       );
     }
   };
+}
+
+/**
+ * Wraps a route handler with authentication.
+ * Checks Bearer token first (for programmatic access), then session cookie.
+ */
+export function withAuthMiddleware(handler: AuthedRouteHandler): RouteHandler {
+  return withApiMiddleware(async (req, ctx) => {
+    // 1. Check Bearer token (programmatic API access)
+    const authorization = req.headers.get("authorization") ?? "";
+    const [scheme, token] = authorization.split(" ");
+
+    if (scheme === "Bearer" && token) {
+      const validKeys = process.env.API_KEYS?.split(",") ?? [];
+      if (validKeys.includes(token)) {
+        const apiUser: AuthenticatedUser = {
+          id: `api-key:${token.slice(0, 8)}`,
+          email: "api@diamond.dev",
+          name: "API Key",
+        };
+        return handler(req, ctx, apiUser);
+      }
+    }
+
+    // 2. Check session cookie
+    const session = await auth.api.getSession({ headers: req.headers });
+
+    if (session) {
+      const user: AuthenticatedUser = {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+      };
+      return handler(req, ctx, user);
+    }
+
+    // 3. Neither — unauthorized
+    throw ApiError.unauthorized("Authentication required");
+  });
 }

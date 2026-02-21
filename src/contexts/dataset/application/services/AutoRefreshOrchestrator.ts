@@ -34,12 +34,12 @@ export class AutoRefreshOrchestrator {
   async checkAndRefresh(
     suiteId: UUID,
     changes: GraphChange[] = []
-  ): Promise<RefreshResult> {
+  ): Promise<{ result: RefreshResult; datasetVersionId?: UUID }> {
     const suite = await this.suiteRepo.findById(suiteId);
-    if (!suite) return "disabled";
+    if (!suite) return { result: "disabled" };
 
     const policy = suite.refreshPolicy;
-    if (!policy?.enabled) return "disabled";
+    if (!policy?.enabled) return { result: "disabled" };
 
     // Guard: no existing draft for this suite
     const drafts = await this.versionRepo.list(
@@ -47,7 +47,7 @@ export class AutoRefreshOrchestrator {
       1,
       1
     );
-    if (drafts.total > 0) return "draft_exists";
+    if (drafts.total > 0) return { result: "draft_exists" };
 
     // Also check validating state
     const validating = await this.versionRepo.list(
@@ -55,22 +55,19 @@ export class AutoRefreshOrchestrator {
       1,
       1
     );
-    if (validating.total > 0) return "draft_exists";
+    if (validating.total > 0) return { result: "draft_exists" };
 
     // Guard: cooldown
-    if (this.isCooldownActive(suite, policy)) return "cooldown";
+    if (this.isCooldownActive(suite, policy)) return { result: "cooldown" };
 
-    // Query eligible candidates
-    const scenarioScope =
-      policy.scenarioTypeScope === "all"
-        ? ("all" as const)
-        : (policy.scenarioTypeIds as UUID[]);
-
-    const eligible =
-      await this.candidateReader.findEligibleForDataset(scenarioScope);
+    // Query eligible candidates scoped to the suite's scenario type
+    const eligible = await this.candidateReader.findEligibleForDataset([
+      suite.scenarioTypeId,
+    ]);
 
     // Check minimum candidate count
-    if (eligible.length < policy.minCandidateCount) return "not_ready";
+    if (eligible.length < policy.minCandidateCount)
+      return { result: "not_ready" };
 
     // Find latest released version for semver computation
     const releasedVersions = await this.versionRepo.list(
@@ -92,7 +89,7 @@ export class AutoRefreshOrchestrator {
       suiteId,
       nextVersion
     );
-    if (existing) return "draft_exists";
+    if (existing) return { result: "draft_exists" };
 
     // Pin scenario graph version
     const scenarioGraphVersion =
@@ -144,7 +141,7 @@ export class AutoRefreshOrchestrator {
       },
     });
 
-    return "created";
+    return { result: "created", datasetVersionId: version.id };
   }
 
   async checkAllSuites(changes: GraphChange[] = []): Promise<void> {

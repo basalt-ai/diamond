@@ -9,6 +9,7 @@ import { parseBody, parseQuery } from "@/lib/api/validate";
 const createSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().optional().default(""),
+  scenario_type_id: z.string().uuid(),
 });
 
 const listSchema = z.object({
@@ -18,7 +19,11 @@ const listSchema = z.object({
 
 export const POST = withApiMiddleware(async (req: NextRequest) => {
   const input = await parseBody(req, createSchema);
-  const result = await manageDatasetSuites.create(input);
+  const result = await manageDatasetSuites.create({
+    name: input.name,
+    description: input.description,
+    scenarioTypeId: input.scenario_type_id,
+  });
   return created(result);
 });
 

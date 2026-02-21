@@ -12,6 +12,7 @@ export interface DatasetSuiteRepository {
   create(params: {
     name: string;
     description: string;
+    scenarioTypeId: string;
   }): Promise<DatasetSuiteData>;
   findById(id: UUID): Promise<DatasetSuiteData | null>;
   findByName(name: string): Promise<DatasetSuiteData | null>;

@@ -36,14 +36,17 @@ export class ManageRefreshRuns {
       scenarioChanges: input.scenarioChanges ?? [],
     });
 
-    const result = await this.orchestrator.checkAndRefresh(
-      input.suiteId,
-      input.scenarioChanges ?? []
-    );
+    const { result, datasetVersionId } =
+      await this.orchestrator.checkAndRefresh(
+        input.suiteId,
+        input.scenarioChanges ?? []
+      );
 
     const finalStatus = result === "created" ? "pending_diagnostics" : "failed";
     return this.repo.updateStatus(run.id, finalStatus, {
       completedAt: result !== "created" ? new Date() : undefined,
+      failureReason: result !== "created" ? result : undefined,
+      datasetVersionId,
     });
   }
 

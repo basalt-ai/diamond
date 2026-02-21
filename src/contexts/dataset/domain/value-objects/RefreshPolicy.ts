@@ -1,10 +1,7 @@
-export type ScenarioTypeScope = "all" | "explicit";
 export type VersionBumpRule = "auto" | "minor" | "patch";
 
 export interface RefreshPolicyData {
   enabled: boolean;
-  scenarioTypeScope: ScenarioTypeScope;
-  scenarioTypeIds: string[];
   minCandidateCount: number;
   minCoveragePercent: number;
   versionBumpRule: VersionBumpRule;
@@ -14,8 +11,6 @@ export interface RefreshPolicyData {
 
 export const DEFAULT_REFRESH_POLICY: RefreshPolicyData = {
   enabled: false,
-  scenarioTypeScope: "all",
-  scenarioTypeIds: [],
   minCandidateCount: 10,
   minCoveragePercent: 0,
   versionBumpRule: "auto",

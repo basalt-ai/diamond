@@ -13,20 +13,31 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+import { scScenarioTypes } from "./scenario";
+
 // ── DatasetSuite ────────────────────────────────────────────────────
 
-export const dsDatasetSuites = pgTable("ds_dataset_suites", {
-  id: uuid().primaryKey(),
-  name: varchar({ length: 255 }).notNull().unique(),
-  description: text().notNull().default(""),
-  refreshPolicy: jsonb("refresh_policy"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const dsDatasetSuites = pgTable(
+  "ds_dataset_suites",
+  {
+    id: uuid().primaryKey(),
+    name: varchar({ length: 255 }).notNull().unique(),
+    description: text().notNull().default(""),
+    scenarioTypeId: uuid("scenario_type_id")
+      .notNull()
+      .references(() => scScenarioTypes.id, { onDelete: "restrict" }),
+    refreshPolicy: jsonb("refresh_policy"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("ds_dataset_suites_scenario_type_id_uniq").on(t.scenarioTypeId),
+  ]
+);
 
 // ── DatasetVersion (Aggregate Root) ─────────────────────────────────
 
@@ -234,6 +245,7 @@ export const dsRefreshRuns = pgTable(
     datasetVersionId: uuid("dataset_version_id").references(
       () => dsDatasetVersions.id
     ),
+    failureReason: varchar("failure_reason", { length: 100 }),
     startedAt: timestamp("started_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

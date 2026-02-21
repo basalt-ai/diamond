@@ -33,6 +33,7 @@ export interface RefreshRunRepository {
     updates?: {
       candidateCount?: number;
       datasetVersionId?: UUID;
+      failureReason?: string;
       completedAt?: Date;
     }
   ): Promise<RefreshRunData>;

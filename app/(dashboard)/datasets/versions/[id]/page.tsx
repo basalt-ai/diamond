@@ -76,26 +76,21 @@ interface DatasetVersion {
   releasedAt: string | null;
 }
 
-type StateAction = "seal" | "release" | "deprecate";
+type TargetState = "validating" | "deprecated";
 
 const STATE_TRANSITIONS: Record<
   DatasetVersion["state"],
-  { action: StateAction; label: string; description: string } | null
+  { targetState: TargetState; label: string; description: string } | null
 > = {
   draft: {
-    action: "seal",
-    label: "Seal Version",
+    targetState: "validating",
+    label: "Seal & Validate",
     description:
-      "This will move the version to validating. It cannot be edited after sealing.",
+      "This will seal the version, run diagnostics, and auto-release if all blocking gates pass.",
   },
-  validating: {
-    action: "release",
-    label: "Release Version",
-    description:
-      "This will release the version for production use. Ensure all gates have passed.",
-  },
+  validating: null, // Release happens automatically via gate evaluation
   released: {
-    action: "deprecate",
+    targetState: "deprecated",
     label: "Deprecate Version",
     description:
       "This will mark the version as deprecated. It will no longer be used for new evaluations.",
@@ -1301,7 +1296,7 @@ function VersionDetailContent() {
 
   function handleTransition() {
     if (!transition) return;
-    transitionMutate({ action: transition.action });
+    transitionMutate({ target_state: transition.targetState });
   }
 
   function handleTabChange(value: string) {
@@ -1381,7 +1376,9 @@ function VersionDetailContent() {
           {transition ? (
             <Button
               variant={
-                transition.action === "deprecate" ? "destructive" : "default"
+                transition.targetState === "deprecated"
+                  ? "destructive"
+                  : "default"
               }
               onClick={() => setConfirmOpen(true)}
               disabled={transitionPending}
@@ -1427,7 +1424,7 @@ function VersionDetailContent() {
           confirmLabel={transition.label}
           onConfirm={handleTransition}
           variant={
-            transition.action === "deprecate" ? "destructive" : "default"
+            transition.targetState === "deprecated" ? "destructive" : "default"
           }
         />
       ) : null}

@@ -24,6 +24,7 @@ export interface RefreshRunData {
   scenarioChanges: GraphChange[];
   candidateCount: number;
   datasetVersionId: UUID | null;
+  failureReason: string | null;
   startedAt: Date;
   completedAt: Date | null;
 }

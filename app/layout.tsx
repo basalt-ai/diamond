@@ -1,5 +1,6 @@
 import { GeistPixelSquare } from "geist/font/pixel";
 import type { Metadata } from "next";
+import { ThemeProvider } from "next-themes";
 
 import "./globals.css";
 
@@ -14,9 +15,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${GeistPixelSquare.variable} font-sans antialiased`}>
-        {children}
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

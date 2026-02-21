@@ -9,9 +9,9 @@ export interface ScenarioTypeCreator {
     failureModeIds?: UUID[];
     contextProfileIds?: UUID[];
   }): Promise<{ id: UUID }>;
-  findRiskTierByCategory(
+  findOrCreateRiskTier(
     category: "business" | "safety" | "compliance"
-  ): Promise<{ id: UUID; name: string } | null>;
+  ): Promise<{ id: UUID; name: string }>;
   findOrCreateFailureMode(input: {
     name: string;
     description: string;

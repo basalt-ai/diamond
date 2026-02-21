@@ -18,6 +18,7 @@ export class DrizzleDatasetSuiteRepository implements DatasetSuiteRepository {
   async create(params: {
     name: string;
     description: string;
+    scenarioTypeId: string;
   }): Promise<DatasetSuiteData> {
     const id = generateId();
     const [row] = await this.db
@@ -26,6 +27,7 @@ export class DrizzleDatasetSuiteRepository implements DatasetSuiteRepository {
         id,
         name: params.name,
         description: params.description,
+        scenarioTypeId: params.scenarioTypeId,
       })
       .returning();
     return row as DatasetSuiteData;

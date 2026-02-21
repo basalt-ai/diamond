@@ -5,7 +5,9 @@ import {
   LayersIcon,
   LockIcon,
   PencilIcon,
+  PlayIcon,
   PlusIcon,
+  RefreshCwIcon,
   ShieldIcon,
   Trash2Icon,
 } from "lucide-react";
@@ -51,8 +53,32 @@ interface DatasetSuite {
   id: string;
   name: string;
   description: string;
+  scenarioTypeId: string;
   createdAt: string;
   updatedAt: string;
+}
+
+interface RefreshPolicyData {
+  enabled: boolean;
+  minCandidateCount: number;
+  minCoveragePercent: number;
+  versionBumpRule: string;
+  cooldownMinutes: number;
+  exportFormats: string[];
+}
+
+interface RefreshRunData {
+  id: string;
+  suiteId: string;
+  triggeredBy: string;
+  triggerEventId: string;
+  status: string;
+  scenarioChanges: unknown[];
+  candidateCount: number;
+  datasetVersionId: string | null;
+  failureReason: string | null;
+  startedAt: string;
+  completedAt: string | null;
 }
 
 interface DatasetVersion {
@@ -527,6 +553,483 @@ function GatePoliciesSection({ suiteId }: { suiteId: string }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Refresh Policy
+// ---------------------------------------------------------------------------
+
+const VERSION_BUMP_OPTIONS = ["auto", "minor", "patch"];
+const EXPORT_FORMAT_OPTIONS = ["jsonl", "cobalt", "limestone"];
+
+function RefreshPolicySection({
+  suiteId,
+  onRefreshTriggered,
+}: {
+  suiteId: string;
+  onRefreshTriggered: () => void;
+}) {
+  const {
+    data: policy,
+    isLoading,
+    refetch,
+  } = useApi<RefreshPolicyData | null>(
+    `/dataset-suites/${suiteId}/refresh-policy`
+  );
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // Form state
+  const [rpEnabled, setRpEnabled] = useState(true);
+  const [rpMinCandidates, setRpMinCandidates] = useState("10");
+  const [rpCooldown, setRpCooldown] = useState("60");
+  const [rpBumpRule, setRpBumpRule] = useState("auto");
+  const [rpCoverage, setRpCoverage] = useState("0");
+  const [rpExportFormats, setRpExportFormats] = useState<string[]>([]);
+
+  const { mutate: savePolicy, isPending: savePending } = useMutation(
+    "PUT",
+    `/dataset-suites/${suiteId}/refresh-policy`,
+    {
+      onSuccess: () => {
+        toast.success("Refresh policy saved");
+        closeDialog();
+        refetch();
+      },
+      onError: (err) => toast.error(err.message),
+    }
+  );
+
+  const [triggerPending, setTriggerPending] = useState(false);
+
+  function closeDialog() {
+    setDialogOpen(false);
+    setRpEnabled(true);
+    setRpMinCandidates("10");
+    setRpCooldown("60");
+    setRpBumpRule("auto");
+    setRpCoverage("0");
+    setRpExportFormats([]);
+  }
+
+  function openEdit() {
+    if (policy) {
+      setRpEnabled(policy.enabled);
+      setRpMinCandidates(String(policy.minCandidateCount));
+      setRpCooldown(String(policy.cooldownMinutes));
+      setRpBumpRule(policy.versionBumpRule);
+      setRpCoverage(String(policy.minCoveragePercent));
+      setRpExportFormats(policy.exportFormats);
+    }
+    setDialogOpen(true);
+  }
+
+  function handleToggleEnabled() {
+    if (!policy) return;
+    api
+      .put(`/dataset-suites/${suiteId}/refresh-policy`, {
+        ...policy,
+        enabled: !policy.enabled,
+      })
+      .then(() => {
+        toast.success(
+          `Auto-refresh ${!policy.enabled ? "enabled" : "disabled"}`
+        );
+        refetch();
+      })
+      .catch(() => toast.error("Failed to toggle auto-refresh"));
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    savePolicy({
+      enabled: rpEnabled,
+      minCandidateCount: Number(rpMinCandidates),
+      minCoveragePercent: Number(rpCoverage),
+      versionBumpRule: rpBumpRule,
+      cooldownMinutes: Number(rpCooldown),
+      exportFormats: rpExportFormats,
+    });
+  }
+
+  function handleDelete() {
+    api
+      .del(`/dataset-suites/${suiteId}/refresh-policy`)
+      .then(() => {
+        toast.success("Refresh policy removed");
+        setDeleteOpen(false);
+        refetch();
+      })
+      .catch(() => toast.error("Failed to remove refresh policy"));
+  }
+
+  function toggleExportFormat(fmt: string) {
+    setRpExportFormats((prev) =>
+      prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt]
+    );
+  }
+
+  async function handleTriggerRefresh() {
+    setTriggerPending(true);
+    try {
+      const run = await api.post<RefreshRunData>(
+        `/dataset-suites/${suiteId}/refresh-runs`,
+        { triggeredBy: "manual", triggerEventId: crypto.randomUUID() }
+      );
+      if (run.status === "failed" && run.failureReason) {
+        const messages: Record<string, string> = {
+          not_ready: "Not enough eligible candidates to create a version.",
+          draft_exists: "A draft or validating version already exists.",
+          cooldown: "Cooldown is active. Try again later.",
+          disabled: "Auto-refresh is not enabled.",
+        };
+        toast.error(
+          messages[run.failureReason] ?? `Refresh failed: ${run.failureReason}`
+        );
+      } else {
+        toast.success("Refresh run started — new draft version created");
+      }
+      onRefreshTriggered();
+      refetch();
+    } catch {
+      toast.error("Failed to trigger refresh");
+    } finally {
+      setTriggerPending(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold">Auto-Refresh Policy</h2>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleTriggerRefresh}
+            disabled={!policy?.enabled || triggerPending}
+            title={
+              !policy
+                ? "Configure a refresh policy first"
+                : !policy.enabled
+                  ? "Enable the refresh policy first"
+                  : "Trigger a manual refresh"
+            }
+          >
+            <PlayIcon className="size-4" />
+            {triggerPending ? "Triggering..." : "Trigger Refresh"}
+          </Button>
+          {!policy ? (
+            <Button size="sm" onClick={() => setDialogOpen(true)}>
+              <PlusIcon className="size-4" />
+              Configure
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={openEdit}>
+              <PencilIcon className="size-4" />
+              Edit
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <Skeleton className="h-32 w-full" />
+      ) : !policy ? (
+        <EmptyState
+          icon={RefreshCwIcon}
+          title="No refresh policy"
+          description="Configure auto-refresh to automatically create dataset versions when new candidates are available."
+          action={{
+            label: "Configure",
+            onClick: () => setDialogOpen(true),
+          }}
+        />
+      ) : (
+        <Card>
+          <CardContent className="space-y-3 pt-4 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Status</span>
+              <div className="flex items-center gap-2">
+                <Badge variant={policy.enabled ? "default" : "secondary"}>
+                  {policy.enabled ? "Enabled" : "Disabled"}
+                </Badge>
+                <button
+                  type="button"
+                  onClick={handleToggleEnabled}
+                  className={`size-3.5 rounded-full border-2 ${
+                    policy.enabled
+                      ? "border-green-500 bg-green-500"
+                      : "border-muted-foreground bg-transparent"
+                  }`}
+                  title={policy.enabled ? "Disable" : "Enable"}
+                />
+              </div>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Min Candidates</span>
+              <span>{policy.minCandidateCount}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Cooldown</span>
+              <span>{policy.cooldownMinutes} min</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Version Bump</span>
+              <span>{policy.versionBumpRule}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Min Coverage</span>
+              <span>{policy.minCoveragePercent}%</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Export Formats</span>
+              <span>
+                {policy.exportFormats.length > 0
+                  ? policy.exportFormats.join(", ")
+                  : "\u2014"}
+              </span>
+            </div>
+            <Separator />
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2Icon className="size-3.5" />
+                Remove Policy
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Edit/Create Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {policy ? "Edit Refresh Policy" : "Configure Refresh Policy"}
+            </DialogTitle>
+            <DialogDescription>
+              Set conditions for automatic dataset version creation.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={rpEnabled}
+                  onChange={(e) => setRpEnabled(e.target.checked)}
+                  className="size-3.5 rounded border"
+                />
+                Enabled
+              </label>
+            </div>
+            <Field>
+              <Label htmlFor="rp-min-candidates">Min Candidate Count</Label>
+              <Input
+                id="rp-min-candidates"
+                type="number"
+                min={1}
+                value={rpMinCandidates}
+                onChange={(e) => setRpMinCandidates(e.target.value)}
+                required
+              />
+            </Field>
+            <Field>
+              <Label htmlFor="rp-cooldown">Cooldown (minutes)</Label>
+              <Input
+                id="rp-cooldown"
+                type="number"
+                min={0}
+                value={rpCooldown}
+                onChange={(e) => setRpCooldown(e.target.value)}
+                required
+              />
+            </Field>
+            <Field>
+              <Label>Version Bump Rule</Label>
+              <Select value={rpBumpRule} onValueChange={setRpBumpRule}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VERSION_BUMP_OPTIONS.map((v) => (
+                    <SelectItem key={v} value={v}>
+                      {v}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <Label htmlFor="rp-coverage">Min Coverage (%)</Label>
+              <Input
+                id="rp-coverage"
+                type="number"
+                min={0}
+                max={100}
+                value={rpCoverage}
+                onChange={(e) => setRpCoverage(e.target.value)}
+                required
+              />
+            </Field>
+            <Field>
+              <Label>Export Formats</Label>
+              <div className="flex items-center gap-4">
+                {EXPORT_FORMAT_OPTIONS.map((fmt) => (
+                  <label key={fmt} className="flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={rpExportFormats.includes(fmt)}
+                      onChange={() => toggleExportFormat(fmt)}
+                      className="size-3.5 rounded border"
+                    />
+                    {fmt}
+                  </label>
+                ))}
+              </div>
+            </Field>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeDialog}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={savePending}>
+                {savePending ? "Saving..." : "Save"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm */}
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Remove Refresh Policy"
+        description="This will remove the auto-refresh configuration. You can reconfigure it later."
+        confirmLabel="Remove"
+        variant="destructive"
+        onConfirm={handleDelete}
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Refresh Runs
+// ---------------------------------------------------------------------------
+
+const FAILURE_REASON_LABELS: Record<string, string> = {
+  not_ready: "Not enough candidates",
+  draft_exists: "Draft already exists",
+  cooldown: "Cooldown active",
+  disabled: "Policy disabled",
+};
+
+function RefreshRunsSection({ suiteId }: { suiteId: string }) {
+  const [page, setPage] = useState(1);
+
+  const { data, isLoading } = useApi<PaginatedResponse<RefreshRunData>>(
+    `/dataset-suites/${suiteId}/refresh-runs?page=${page}&page_size=10`
+  );
+
+  const router = useRouter();
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-sm font-semibold">Refresh Runs</h2>
+
+      {isLoading ? (
+        <Skeleton className="h-32 w-full" />
+      ) : !data?.data || data.data.length === 0 ? (
+        <EmptyState
+          icon={RefreshCwIcon}
+          title="No refresh runs"
+          description="Trigger a manual refresh to create a dataset version from this scenario's candidates."
+        />
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b text-left">
+                  <th className="px-4 py-2 font-medium">Trigger</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                  <th className="px-4 py-2 font-medium">Detail</th>
+                  <th className="px-4 py-2 font-medium">Candidates</th>
+                  <th className="px-4 py-2 font-medium">Version</th>
+                  <th className="px-4 py-2 font-medium">Started</th>
+                  <th className="px-4 py-2 font-medium">Completed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.data.map((run) => (
+                  <tr key={run.id} className="border-b">
+                    <td className="px-4 py-2">
+                      <Badge variant="secondary">{run.triggeredBy}</Badge>
+                    </td>
+                    <td className="px-4 py-2">
+                      <StateBadge state={run.status} />
+                    </td>
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {run.status === "failed" && run.failureReason
+                        ? (FAILURE_REASON_LABELS[run.failureReason] ??
+                          run.failureReason)
+                        : "\u2014"}
+                    </td>
+                    <td className="px-4 py-2">{run.candidateCount}</td>
+                    <td className="px-4 py-2">
+                      {run.datasetVersionId ? (
+                        <button
+                          type="button"
+                          className="text-blue-500 hover:underline"
+                          onClick={() =>
+                            router.push(
+                              `/datasets/versions/${run.datasetVersionId}`
+                            )
+                          }
+                        >
+                          {run.datasetVersionId.slice(0, 8)}&hellip;
+                        </button>
+                      ) : (
+                        "\u2014"
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      {new Date(run.startedAt).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2">
+                      {run.completedAt
+                        ? new Date(run.completedAt).toLocaleString()
+                        : "\u2014"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+      {data?.pagination && data.pagination.totalPages > 1 ? (
+        <Pagination
+          total={data.pagination.total}
+          page={data.pagination.page}
+          pageSize={data.pagination.pageSize}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 export default function SuiteDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -540,6 +1043,10 @@ export default function SuiteDetailPage() {
 
   const { data: suite, isLoading } = useApi<DatasetSuite>(
     `/dataset-suites/${params.id}`
+  );
+
+  const { data: scenarioType } = useApi<{ id: string; name: string }>(
+    suite ? `/scenario-types/${suite.scenarioTypeId}` : null
   );
 
   const {
@@ -639,7 +1146,12 @@ export default function SuiteDetailPage() {
           </Link>
         </Button>
         <div className="flex-1">
-          <h1 className="text-lg font-semibold">{suite.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold">{suite.name}</h1>
+            {scenarioType && (
+              <Badge variant="secondary">{scenarioType.name}</Badge>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">{suite.description}</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
@@ -699,6 +1211,10 @@ export default function SuiteDetailPage() {
       </div>
 
       <GatePoliciesSection suiteId={params.id} />
+
+      <RefreshPolicySection suiteId={params.id} onRefreshTriggered={refetch} />
+
+      <RefreshRunsSection suiteId={params.id} />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>

@@ -104,7 +104,12 @@
       "Bash(kill:*)",
       "Bash(pkill:*)",
       "Bash(DATABASE_URL=\"postgres://localhost/diamond\" pnpm db:push:*)",
-      "Bash(DATABASE_URL=\"postgres://localhost/diamond\" pnpm db:generate:*)"
+      "Bash(DATABASE_URL=\"postgres://localhost/diamond\" pnpm db:generate:*)",
+      "Bash(DATABASE_URL=\"postgres://localhost/diamond\" pnpm db:migrate:*)",
+      "WebFetch(domain:www.better-auth.com)",
+      "Bash(DATABASE_URL=postgresql://theophile@localhost:5432/diamond pnpm db:migrate:*)",
+      "Bash(DATABASE_URL=postgresql://theophile@localhost:5432/diamond pnpm db:push:*)",
+      "Bash(openssl rand:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

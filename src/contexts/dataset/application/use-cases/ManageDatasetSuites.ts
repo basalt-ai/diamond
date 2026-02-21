@@ -13,6 +13,7 @@ export class ManageDatasetSuites {
   async create(input: {
     name: string;
     description?: string;
+    scenarioTypeId: string;
   }): Promise<DatasetSuiteData> {
     const existing = await this.repo.findByName(input.name);
     if (existing) {
@@ -22,6 +23,7 @@ export class ManageDatasetSuites {
     return this.repo.create({
       name: input.name,
       description: input.description ?? "",
+      scenarioTypeId: input.scenarioTypeId,
     });
   }
 

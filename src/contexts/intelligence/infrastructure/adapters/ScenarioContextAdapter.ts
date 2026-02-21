@@ -23,13 +23,38 @@ export class ScenarioContextAdapter implements ScenarioTypeCreator {
     return { id: result.id };
   }
 
-  async findRiskTierByCategory(
+  async findOrCreateRiskTier(
     category: "business" | "safety" | "compliance"
-  ): Promise<{ id: UUID; name: string } | null> {
+  ): Promise<{ id: UUID; name: string }> {
     const { manageRiskTiers } = await import("@/contexts/scenario");
     const tiers = await manageRiskTiers.list();
     const match = tiers.find((t) => t.category === category);
-    return match ? { id: match.id, name: match.name } : null;
+    if (match) return { id: match.id, name: match.name };
+
+    const defaults: Record<
+      string,
+      {
+        name: string;
+        weight: number;
+        category: "business" | "safety" | "compliance";
+      }
+    > = {
+      business: { name: "business_default", weight: 0.5, category: "business" },
+      safety: { name: "safety_default", weight: 0.9, category: "safety" },
+      compliance: {
+        name: "compliance_default",
+        weight: 0.7,
+        category: "compliance",
+      },
+    };
+
+    const def = defaults[category]!;
+    const created = await manageRiskTiers.create({
+      name: def.name,
+      weight: def.weight,
+      category: def.category,
+    });
+    return { id: created.id, name: created.name };
   }
 
   async findOrCreateFailureMode(input: {

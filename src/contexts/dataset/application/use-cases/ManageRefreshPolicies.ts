@@ -5,7 +5,6 @@ import type { DatasetSuiteData } from "../../domain/entities/DatasetSuite";
 import type { RefreshPolicyData } from "../../domain/value-objects/RefreshPolicy";
 import type { DatasetSuiteRepository } from "../ports/DatasetSuiteRepository";
 
-const VALID_SCENARIO_TYPE_SCOPES = ["all", "explicit"] as const;
 const VALID_VERSION_BUMP_RULES = ["auto", "minor", "patch"] as const;
 const VALID_EXPORT_FORMATS = ["jsonl", "cobalt", "limestone"] as const;
 
@@ -38,31 +37,12 @@ export class ManageRefreshPolicies {
 
   private validate(input: RefreshPolicyData): void {
     if (
-      !VALID_SCENARIO_TYPE_SCOPES.includes(
-        input.scenarioTypeScope as (typeof VALID_SCENARIO_TYPE_SCOPES)[number]
-      )
-    ) {
-      throw new Error(
-        `scenarioTypeScope must be one of: ${VALID_SCENARIO_TYPE_SCOPES.join(", ")}`
-      );
-    }
-
-    if (
       !VALID_VERSION_BUMP_RULES.includes(
         input.versionBumpRule as (typeof VALID_VERSION_BUMP_RULES)[number]
       )
     ) {
       throw new Error(
         `versionBumpRule must be one of: ${VALID_VERSION_BUMP_RULES.join(", ")}`
-      );
-    }
-
-    if (
-      input.scenarioTypeScope === "explicit" &&
-      input.scenarioTypeIds.length === 0
-    ) {
-      throw new Error(
-        "scenarioTypeIds must not be empty when scenarioTypeScope is 'explicit'"
       );
     }
 

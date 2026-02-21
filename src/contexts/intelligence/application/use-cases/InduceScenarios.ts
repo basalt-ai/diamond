@@ -62,12 +62,7 @@ export class InduceScenarios {
         // No match — create new scenario type
         const riskCategory = cluster.suggestedRiskCategory ?? "business";
         const riskTier =
-          await this.scenarioTypeCreator.findRiskTierByCategory(riskCategory);
-        if (!riskTier) {
-          throw new Error(
-            "No risk tiers found — run db:seed to create defaults"
-          );
-        }
+          await this.scenarioTypeCreator.findOrCreateRiskTier(riskCategory);
 
         // Resolve/create failure modes
         const failureModeIds: UUID[] = [];

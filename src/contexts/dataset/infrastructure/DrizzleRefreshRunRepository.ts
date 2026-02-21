@@ -70,6 +70,7 @@ export class DrizzleRefreshRunRepository implements RefreshRunRepository {
     updates?: {
       candidateCount?: number;
       datasetVersionId?: UUID;
+      failureReason?: string;
       completedAt?: Date;
     }
   ): Promise<RefreshRunData> {
@@ -82,6 +83,9 @@ export class DrizzleRefreshRunRepository implements RefreshRunRepository {
         }),
         ...(updates?.datasetVersionId !== undefined && {
           datasetVersionId: updates.datasetVersionId,
+        }),
+        ...(updates?.failureReason !== undefined && {
+          failureReason: updates.failureReason,
         }),
         ...(updates?.completedAt !== undefined && {
           completedAt: updates.completedAt,

@@ -1,3 +1,4 @@
+export * from "./auth";
 export * from "./candidate";
 export * from "./dataset";
 export * from "./export";

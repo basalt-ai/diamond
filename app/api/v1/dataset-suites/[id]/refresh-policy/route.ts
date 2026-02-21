@@ -9,8 +9,6 @@ import { parseBody } from "@/lib/api/validate";
 
 const refreshPolicySchema = z.object({
   enabled: z.boolean(),
-  scenarioTypeScope: z.enum(["all", "explicit"]),
-  scenarioTypeIds: z.array(z.string().uuid()).default([]),
   minCandidateCount: z.number().int().min(1),
   minCoveragePercent: z.number().min(0).max(100),
   versionBumpRule: z.enum(["auto", "minor", "patch"]),

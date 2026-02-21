@@ -21,6 +21,13 @@ import {
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useApi } from "@/hooks/use-api";
 import { useMutation } from "@/hooks/use-mutation";
@@ -30,8 +37,14 @@ interface DatasetSuite {
   id: string;
   name: string;
   description: string;
+  scenarioTypeId: string;
   createdAt: string;
   updatedAt: string;
+}
+
+interface ScenarioType {
+  id: string;
+  name: string;
 }
 
 const PAGE_SIZE = 20;
@@ -65,9 +78,14 @@ function DatasetSuitesContent() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [scenarioTypeId, setScenarioTypeId] = useState("");
 
   const { data, isLoading, refetch } = useApi<PaginatedResponse<DatasetSuite>>(
     `/dataset-suites?page=${page}&page_size=${PAGE_SIZE}`
+  );
+
+  const { data: scenarioTypes } = useApi<PaginatedResponse<ScenarioType>>(
+    dialogOpen ? "/scenario-types?page_size=100" : null
   );
 
   const { mutate, isPending } = useMutation("POST", "/dataset-suites", {
@@ -85,11 +103,16 @@ function DatasetSuitesContent() {
   function resetForm() {
     setName("");
     setDescription("");
+    setScenarioTypeId("");
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    mutate({ name, description });
+    if (!scenarioTypeId) {
+      toast.error("Please select a scenario type");
+      return;
+    }
+    mutate({ name, description, scenario_type_id: scenarioTypeId });
   }
 
   return (
@@ -167,6 +190,21 @@ function DatasetSuitesContent() {
                 placeholder="Describe this dataset suite..."
                 required
               />
+            </Field>
+            <Field>
+              <Label htmlFor="ds-scenario-type">Scenario Type</Label>
+              <Select value={scenarioTypeId} onValueChange={setScenarioTypeId}>
+                <SelectTrigger id="ds-scenario-type">
+                  <SelectValue placeholder="Select a scenario type…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(scenarioTypes?.data ?? []).map((st) => (
+                    <SelectItem key={st.id} value={st.id}>
+                      {st.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             <DialogFooter>
               <Button

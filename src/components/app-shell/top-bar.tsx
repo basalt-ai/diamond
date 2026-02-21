@@ -2,6 +2,7 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
 import { Breadcrumbs } from "./breadcrumbs";
+import { UserMenu } from "./user-menu";
 
 export function TopBar() {
   return (
@@ -11,9 +12,7 @@ export function TopBar() {
       <div className="flex-1">
         <Breadcrumbs />
       </div>
-      <div className="bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center text-xs font-medium">
-        TU
-      </div>
+      <UserMenu />
     </header>
   );
 }

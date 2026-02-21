@@ -6,6 +6,7 @@ export interface DatasetSuiteData {
   id: UUID;
   name: string;
   description: string;
+  scenarioTypeId: UUID;
   refreshPolicy: RefreshPolicyData | null;
   createdAt: Date;
   updatedAt: Date;
